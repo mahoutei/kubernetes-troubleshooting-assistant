@@ -172,8 +172,8 @@ Fine-tune a small open model to emit reliable tool calls, then quantify the trad
 
 ### 4.2 Data
 
-- Dataset: `NousResearch/hermes-function-calling-v1` (Apache-2.0, public, no auth), using the 1,893 single-turn examples plus the first human→tool-call turn from the 5,209 cleaned Glaive examples (~7.1k raw rows). Pin the repo commit, each file's sha256, and row counts; write the parsed/split counts to a manifest instead of hardcoding them in prose.
-- Dedupe exact duplicates plus near-identical rows (normalized user prompt + same target calls) before splitting. Residual limitation: case/whitespace/punctuation variants are caught, paraphrases are not; say so in the README and model card.
+- Dataset: `NousResearch/hermes-function-calling-v1` (Apache-2.0, public, no auth), using the 1,893 single-turn rows plus the first tool-call turn from the 5,209 Glaive rows (~7.1k raw rows). Only ~5.4k rows contain a usable tool-call turn; clarification-only rows are skipped by design. Pin the repo commit, each file's sha256, and row counts; take the parsed/split counts from the manifest, not from prose.
+- Dedupe exact duplicates plus near-identical rows (same normalized tool schema + normalized user prompt + same target calls) before splitting. Residual limitation: case/whitespace/punctuation variants are caught, paraphrases are not; say so in the README and model card.
 - Split 80/10/10 by normalized tool-schema hash (tool names + parameter paths/types; descriptions/defaults/examples ignored), not by row, so test tool schemas never appear in training. Record the actual counts in the manifest.
 - Store only the dataset pin, manifest, and scripts in git; download data reproducibly and verify checksums.
 
@@ -188,7 +188,7 @@ Fine-tune a small open model to emit reliable tool calls, then quantify the trad
 
 ### 4.4 Evaluation
 
-- ~710 held-out examples (exact count from the manifest).
+- ~510 test examples plus ~509 validation examples (exact counts from the manifest).
 - Metrics: tool-name accuracy, argument exact/F1, full-call exact match, JSON validity, p95 latency, and cost per 1k calls computed from recorded token usage. Each API call records provider, model, prompt tokens, and completion tokens; the cost basis is documented (free tier = `$0` token charges, local inference = no per-token spend).
 - Comparisons: base model, LoRA adapter, prompted free-tier API (`openai/gpt-oss-120b`). If the Gemini fallback is used, label it; mixed-provider numbers are not directly comparable.
 - Constrained JSON decoding with Outlines for local models; report the effect if time allows.

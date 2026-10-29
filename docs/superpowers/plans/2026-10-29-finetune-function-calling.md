@@ -53,11 +53,13 @@
 **Interfaces:**
 - Produces: `Example(id: str, tools: list[dict], user: str, calls: list[dict], source: str)`, `extract_tagged_json(text: str, tag: str) -> list[dict]`, `parse_hermes_row(row: dict, source: str) -> Example | None`, `load_examples(paths: list[Path]) -> list[Example]`, `dedupe(examples) -> list[Example]`, `dedupe_near(examples) -> list[Example]`, `schema_hash(tools) -> str`, `find_schema_leaks(splits) -> dict[str, set[str]]`, `assert_split_integrity(examples, splits) -> dict[str, int]`, `split_examples(examples, seed=42, ratios=(0.8, 0.1, 0.1)) -> dict[str, list[Example]]`, `write_jsonl(examples, path)`.
 - `extract_tagged_json` uses `json.JSONDecoder.raw_decode`, so nested braces inside `<tool_call>` are safe.
-- `parse_hermes_row` reads the top-level `tools` column first (a JSON string in the real dataset) and falls back to the `<tools>` tag in the system message; rows without a valid assistant tool call are skipped.
+- `parse_hermes_row` reads the top-level `tools` column first (a JSON string in the real dataset) and falls back to the `<tools>` tag in the system message. It skips clarification turns and uses the first assistant turn that actually contains a valid tool call, pairing it with the human turn immediately before it; rows with no such call are skipped.
 - `schema_hash` normalizes each tool to its function name + sorted parameter paths/types. Descriptions, defaults, examples, required lists, and enum ordering do not affect the hash.
-- `load_examples` applies exact dedupe and near-duplicate dedupe (same normalized user prompt + same target calls) before returning.
+- `load_examples` applies exact dedupe and near-duplicate dedupe (same normalized tool schema + normalized user prompt + same target calls) before returning.
 - Split groups by schema hash; `assert_split_integrity` re-derives counts and schema ownership from the examples and raises `ValueError` on empty splits, a count mismatch, or a cross-split schema. `find_schema_leaks` is exposed so an independent test can cross-check it.
 - `.gitignore` excludes `data/raw/`, `data/processed/`, `outputs/`, `artifacts/`, and `**/checkpoint-*/` (artifact policy lives here, not in the root `.gitignore`).
+
+> **Post-execution reconciliation (2026-10-30, commit `62ab3b9`):** the first real-data run found that multi-turn rows often start with a clarification turn and that global near-dedupe was collapsing valid examples whose only difference was the available tool set. The committed `src/data.py` scans to the first actual tool-call turn and keys near-dedupe on the schema as well; `tests/test_data.py` has two extra tests (17), so Task 1+2 is **21 tests**. The embedded Task 1 code/test blocks below are the pre-execution draft; the branch is authoritative. Real run: 7,102 raw → 5,100 parsed → 4,080/509/510 kept.
 
 - [ ] **Step 1: Create the fixture**
 
@@ -630,7 +632,7 @@ cd projects/02-finetune-function-calling
 uv sync
 uv run pytest tests/test_data.py -q
 ```
-Expected: `15 passed`.
+Expected: `17 passed`.
 
 - [ ] **Step 6: Commit**
 
