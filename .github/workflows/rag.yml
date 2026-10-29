@@ -1,0 +1,24 @@
+name: rag
+
+on:
+  push:
+    paths: ["projects/01-rag-k8s-docs/**", ".github/workflows/rag.yml"]
+  pull_request:
+    paths: ["projects/01-rag-k8s-docs/**", ".github/workflows/rag.yml"]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: projects/01-rag-k8s-docs
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+      # uv 0.13.6 installs the dev group by default; `uv sync --dev` is not a flag.
+      - run: uv sync --frozen
+      - run: uv run ruff check .
+      - run: uv run pytest -q
+      - run: uv run python evals/validate_questions.py evals/questions.jsonl

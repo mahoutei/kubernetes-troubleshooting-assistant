@@ -1,0 +1,8 @@
+data/
+evals/cache/
+evals/results/
+evals/calibration.json
+tests/
+**/__pycache__
+.venv/
+.ruff_cache/
