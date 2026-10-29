@@ -1,0 +1,10 @@
+# Rebuilt by scripts; never commit data or model artifacts.
+data/raw/
+data/processed/
+outputs/
+artifacts/
+**/checkpoint-*/
+optimizer.pt
+scheduler.pt
+trainer_state.json
+train_log.csv

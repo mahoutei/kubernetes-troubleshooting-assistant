@@ -1,0 +1,28 @@
+[
+  {
+    "id": "row-1",
+    "tools": "[{\"type\":\"function\",\"function\":{\"name\":\"get_stock_price\",\"description\":\"Get a stock price\",\"parameters\":{\"type\":\"object\",\"properties\":{\"company\":{\"type\":\"string\"}},\"required\":[\"company\"]}}}]",
+    "conversations": [
+      {"from": "system", "value": "You are a function calling AI model. <tools>[{\"type\":\"function\",\"function\":{\"name\":\"get_stock_price\",\"parameters\":{\"type\":\"object\",\"properties\":{\"company\":{\"type\":\"string\"}}}}}]</tools>"},
+      {"from": "human", "value": "What is Apple's stock price?"},
+      {"from": "gpt", "value": "<tool_call>\n{\"name\": \"get_stock_price\", \"arguments\": {\"company\": \"Apple\"}}\n</tool_call>"}
+    ]
+  },
+  {
+    "id": "row-2",
+    "tools": "[{\"type\":\"function\",\"function\":{\"name\":\"get_news\",\"parameters\":{\"type\":\"object\",\"properties\":{\"country\":{\"type\":\"string\"}}}}}]",
+    "conversations": [
+      {"from": "system", "value": "You are a function calling AI model."},
+      {"from": "human", "value": "Tell me the news."},
+      {"from": "gpt", "value": "I cannot do that."}
+    ]
+  },
+  {
+    "id": "row-3",
+    "conversations": [
+      {"from": "system", "value": "You are a function calling AI model. <tools>[{\"type\":\"function\",\"function\":{\"name\":\"get_weather\",\"parameters\":{\"type\":\"object\",\"properties\":{\"city\":{\"type\":\"string\"}}}}}]</tools>"},
+      {"from": "human", "value": "What is the weather in Paris?"},
+      {"from": "gpt", "value": "<tool_call>\n{\"name\": \"get_weather\", \"arguments\": {\"city\": \"Paris\"}}\n</tool_call>"}
+    ]
+  }
+]
