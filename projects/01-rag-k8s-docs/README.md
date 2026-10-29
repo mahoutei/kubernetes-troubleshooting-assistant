@@ -2,7 +2,7 @@
 
 Citation-backed retrieval-augmented question answering over the pinned Kubernetes documentation, with a small, inspectable evaluation harness instead of a framework.
 
-**Status (dev split):** retrieval evaluation and the offline extractive baseline are complete on 30 dev questions (500-token index). Generation/judge evaluation, deployment, and the 300-token ablation are still gated (see [Gates](#gates)). No test-split numbers are published: the 60-question gold set is not certified yet.
+**Status (dev split):** retrieval evaluation and the offline extractive baseline are complete on 30 dev questions for the 500- and 800-token indexes. Generation/judge evaluation, deployment, and the 300-token index are still gated (see [Gates](#gates)). No test-split numbers are published: the 60-question gold set is not certified yet.
 
 ## Architecture
 
@@ -45,10 +45,22 @@ Findings:
 - Hybrid retrieval improves recall@10 and nDCG over dense, but loses recall@5 — RRF lets BM25-only documents displace dense hits at the top.
 - The cross-encoder recovers recall@5 and improves MRR/nDCG, at ~15 s per query on this CPU. That latency is the main deployment risk; the API defaults to 5 context chunks.
 - The 15-question smoke run (`smoke-hybrid`, `smoke-hybrid-rerank`) passes the configured thresholds (recall@10 ≥ 0.50, nDCG@10 ≥ 0.35), but n=15 is noisy and is not used for the headline comparison.
+- At 800 tokens the reranker improves MRR/nDCG further (0.819/0.843 vs 0.795/0.824 at 500), while recall@5 is slightly lower (0.880 vs 0.900); with n=30 these are directional, not significance-tested.
 
 ## Chunk-size ablation
 
-The 500-token rows above are the headline. The 300/800 sweep is produced by `scripts/run_ablations.sh` and committed under `evals/results/ablation-<size>-<mode>.json`; the README table is updated only from those committed files (no hand-entered numbers).
+The 500-token rows above are the headline. The 800-token index has 10,014 chunks and took 1,778 s to build; the 300-token build is deferred (concurrent builds throttled to ~44 s/batch on this CPU, versus ~13–20 s alone). `scripts/run_ablations.sh` rebuilds all three sizes and writes `evals/results/ablation-<size>-<mode>.json`.
+
+| chunk | mode | n | R@5 | R@10 | R@20 | MRR@10 | nDCG@10 | p95 ms |
+|---:|---|---:|---:|---:|---:|---:|---:|---:|
+| 500 | dense | 30 | 0.860 | 0.920 | 0.920 | 0.738 | 0.766 | 49 |
+| 500 | hybrid | 30 | 0.760 | 0.940 | 0.940 | 0.756 | 0.788 | 128 |
+| 500 | hybrid + rerank | 30 | 0.900 | 0.940 | 0.940 | 0.795 | 0.824 | 15,063 |
+| 800 | dense | 30 | 0.860 | 0.920 | 0.920 | 0.769 | 0.786 | 59 |
+| 800 | hybrid | 30 | 0.760 | 0.900 | 0.940 | 0.769 | 0.783 | 125 |
+| 800 | hybrid + rerank | 30 | 0.880 | 0.940 | 0.940 | 0.819 | 0.843 | 15,128 |
+
+The 500 rows come from `evals/results/dev-*.json`; the 800 rows from `evals/results/ablation-800-*.json`. The 300-token row is absent rather than estimated.
 
 ## Offline extractive baseline
 

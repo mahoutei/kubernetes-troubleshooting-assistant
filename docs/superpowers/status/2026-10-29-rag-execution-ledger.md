@@ -28,6 +28,15 @@ Findings: on the 30-question dev set, hybrid raises recall@10 and nDCG over dens
 
 - The Task 7 deferred item "retrieval aggregates must filter unanswerable questions" is resolved: unanswerable slices now omit retrieval metrics instead of reporting 0.0.
 
+## Shipping artifacts (2026-10-30)
+
+- `1a081ad` adds `.github/workflows/rag.yml` (uv sync --frozen, ruff, pytest, validator), `Dockerfile`, `.dockerignore`, and `scripts/deploy_space.sh`. Docker and HF deploy are **static-verified only** (no Docker binary, no HF token, no remote).
+- `5ed5b08` adds `README.md`, `ATTRIBUTIONS.md`, and the offline extractive baseline.
+- Offline baseline (`--offline --mode hybrid`, n=30): citation P/R 0.600/0.500, fact coverage 0.190, refusal 0.000, p95 225 ms. The extractive answerer always answers, so this is a no-key baseline, not generation quality.
+- Local checks: 72 tests, ruff, `ok: 60 questions`, CI YAML parses with PyYAML, `bash -n` passes.
+- Chunk-size sweep: the 800-token index built in 1,778 s — 10,014 chunks, 30 MB. Dev retrieval (n=30): dense R@5/R@10/R@20 0.860/0.920/0.920, MRR 0.769, nDCG 0.786, p95 59 ms; hybrid 0.760/0.900/0.940, MRR 0.769, nDCG 0.783, p95 125 ms; hybrid+rerank 0.880/0.940/0.940, MRR 0.819, nDCG 0.843, p95 15,128 ms. At 800 tokens the reranker improves MRR/nDCG over the 500 run but recall@5 is 0.02 lower; with n=30 these are directional. The 300-token build was stopped after concurrent builds throttled to ~44 s/batch (versus ~13–20 s/batch alone); it is deferred with the exact command in the README, and no partial numbers are committed. Results: `evals/results/ablation-800-*.json`.
+- Human gates unchanged: API keys for generation/judge, signed certification, Docker/HF deploy, license.
+
 ## Task 8 (recorded after the original ledger ended)
 
 - `evals/questions.jsonl`: 60 records, ids q001–q060, 30 dev / 30 test.
