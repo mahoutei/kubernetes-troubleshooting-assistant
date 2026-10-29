@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Kubernetes Docs RAG</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 760px; margin: 3rem auto; padding: 0 1rem; }
+    form { display: flex; gap: .5rem; }
+    input { flex: 1; padding: .7rem; font-size: 1rem; }
+    button { padding: .7rem 1rem; font-size: 1rem; cursor: pointer; }
+    #answer { white-space: pre-wrap; margin-top: 1.5rem; line-height: 1.5; }
+    #sources li { margin: .4rem 0; }
+    .muted { color: #666; font-size: .9rem; }
+  </style>
+</head>
+<body>
+  <h1>Kubernetes Docs RAG</h1>
+  <p class="muted">Answers are grounded in pinned Kubernetes documentation and cite their sources.</p>
+  <form id="form">
+    <input id="question" placeholder="How does a PodDisruptionBudget work?" required minlength="3" maxlength="500" />
+    <button type="submit">Ask</button>
+  </form>
+  <div id="answer"></div>
+  <ol id="sources"></ol>
+  <script>
+    const form = document.getElementById("form");
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const question = document.getElementById("question").value;
+      const answerEl = document.getElementById("answer");
+      const sourcesEl = document.getElementById("sources");
+      answerEl.textContent = "Thinking...";
+      sourcesEl.innerHTML = "";
+      const response = await fetch("/ask", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question }),
+      });
+      if (!response.ok) {
+        answerEl.textContent = `Error ${response.status}: ${await response.text()}`;
+        return;
+      }
+      const data = await response.json();
+      answerEl.textContent = data.answer;
+      for (const citation of data.citations) {
+        const li = document.createElement("li");
+        const link = document.createElement("a");
+        link.href = citation.url;
+        link.textContent = citation.heading || citation.url;
+        li.appendChild(link);
+        sourcesEl.appendChild(li);
+      }
+    });
+  </script>
+</body>
+</html>
