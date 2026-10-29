@@ -35,6 +35,14 @@ def test_fragments_are_ignored():
     assert recall_at_k(["https://x/pods/#lifecycle"], {"https://x/pods/"}, 1) == 1.0
 
 
+def test_duplicate_chunks_are_document_level():
+    retrieved = ["https://x/pods/#a", "https://x/pods/#b", "https://x/pods/#c"]
+    gold = {"https://x/pods/"}
+    assert recall_at_k(retrieved, gold, 3) == 1.0
+    assert ndcg_at_k(retrieved, gold, 3) == pytest.approx(1.0)
+    assert citation_precision_recall(retrieved, gold) == (1.0, 1.0)
+
+
 def test_fact_coverage_normalizes_case_and_punctuation():
     assert fact_coverage("A Pod is the smallest unit.", ["smallest unit"]) == 1.0
     assert fact_coverage("A Pod is small.", ["smallest unit"]) == 0.0
