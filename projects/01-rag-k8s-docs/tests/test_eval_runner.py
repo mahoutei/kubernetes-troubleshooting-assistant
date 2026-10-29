@@ -98,8 +98,23 @@ def test_threshold_failures():
     assert threshold_failures({"recall@10": 0.1, "ndcg@10": 0.4}) == ["recall@10=0.100 < 0.50"]
 
 
-def test_test_split_requires_certification(capsys):
-    assert main(["--questions", str(QUESTIONS), "--split", "test", "--retrieval-only"]) == 1
+def test_test_split_requires_certification(tmp_path, capsys):
+    cert = tmp_path / "CERTIFICATION.md"
+    cert.write_text("- Reviewer: ____\n- Date: ____\n- Notes: ____\n")
+    assert (
+        main(
+            [
+                "--questions",
+                str(QUESTIONS),
+                "--split",
+                "test",
+                "--retrieval-only",
+                "--certification",
+                str(cert),
+            ]
+        )
+        == 1
+    )
     out = capsys.readouterr().out
     assert "refusing the test split" in out
     assert "Reviewer is blank" in out
