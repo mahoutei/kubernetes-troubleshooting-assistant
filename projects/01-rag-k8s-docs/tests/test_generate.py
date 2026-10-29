@@ -1,6 +1,40 @@
+import pytest
+
 from rag.config import Settings
-from rag.generate import answer_question, build_messages, extractive_answer
-from rag.models import Chunk
+from rag.generate import (
+    Endpoint,
+    LLMClient,
+    LLMError,
+    answer_question,
+    build_messages,
+    extractive_answer,
+)
+from rag.models import Chunk, Usage
+
+
+def _fake_client(*, fail=False, text="A Pod is small [1].", prompt_tokens=3, completion_tokens=4):
+    class Completions:
+        def create(self, **kwargs):
+            if fail:
+                raise RuntimeError("provider down")
+            message = type("Message", (), {"content": text})()
+            choice = type("Choice", (), {"message": message})()
+            usage = type(
+                "Usage",
+                (),
+                {"prompt_tokens": prompt_tokens, "completion_tokens": completion_tokens},
+            )()
+            return type("Response", (), {"choices": [choice], "usage": usage})()
+
+    chat = type("Chat", (), {"completions": Completions()})()
+    return type("Client", (), {"chat": chat})()
+
+
+def _endpoints():
+    return [
+        Endpoint("groq", "openai/gpt-oss-120b", "https://groq.test", "k1"),
+        Endpoint("gemini", "gemini-2.5-flash", "https://gemini.test", "k2"),
+    ]
 
 
 def chunks():
@@ -26,7 +60,53 @@ def test_citations_are_parsed_and_out_of_range_dropped():
     assert answer.text.startswith("A Pod")
     assert [c.id for c in answer.citations] == [1]
     assert answer.citations[0].url == "u1"
-    assert answer.usage["prompt_tokens"] == 1
+    assert answer.usage.prompt_tokens == 1
+
+
+def test_llm_falls_back_to_second_provider():
+    client = LLMClient(
+        Settings(offline=False, llm_fallback_provider="gemini"),
+        endpoints=_endpoints(),
+        client_factory=lambda endpoint: _fake_client(fail=endpoint.provider == "groq"),
+    )
+    text, usage = client.complete([{"role": "user", "content": "q"}], 10)
+    assert text.startswith("A Pod")
+    assert usage == Usage(
+        provider="gemini",
+        model="gemini-2.5-flash",
+        prompt_tokens=3,
+        completion_tokens=4,
+    )
+
+
+def test_llm_raises_when_all_providers_fail():
+    client = LLMClient(
+        Settings(offline=False, llm_fallback_provider="gemini"),
+        endpoints=_endpoints(),
+        client_factory=lambda endpoint: _fake_client(fail=True),
+    )
+    with pytest.raises(LLMError, match="all LLM providers failed"):
+        client.complete([{"role": "user", "content": "q"}], 10)
+
+
+def test_llm_skips_provider_without_key():
+    endpoints = [
+        Endpoint("groq", "openai/gpt-oss-120b", "https://groq.test", None),
+        Endpoint("gemini", "gemini-2.5-flash", "https://gemini.test", "k2"),
+    ]
+    client = LLMClient(
+        Settings(offline=False),
+        endpoints=endpoints,
+        client_factory=lambda endpoint: _fake_client(fail=False),
+    )
+    _, usage = client.complete([{"role": "user", "content": "q"}], 10)
+    assert usage.provider == "gemini"
+
+
+def test_llm_requires_at_least_one_key():
+    endpoints = [Endpoint("groq", "openai/gpt-oss-120b", "https://groq.test", None)]
+    with pytest.raises(ValueError, match="no LLM API key"):
+        LLMClient(Settings(offline=False), endpoints=endpoints)
 
 
 def test_offline_mode_is_extractive_and_cited():

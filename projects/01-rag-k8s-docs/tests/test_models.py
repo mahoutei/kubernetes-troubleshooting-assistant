@@ -1,4 +1,4 @@
-from rag.models import Chunk, Citation, RetrievedChunk
+from rag.models import Chunk, RetrievedChunk
 
 
 def test_chunk_is_frozen():

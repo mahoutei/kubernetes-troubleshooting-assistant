@@ -9,7 +9,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from rag.config import Settings
-from rag.generate import LLMClient, answer_question
+from rag.generate import LLMClient, LLMError, answer_question
 from rag.models import Answer
 from rag.retrieve import CrossEncoderReranker, Retriever
 
@@ -64,7 +64,7 @@ def create_app(settings: Settings, retriever=None, llm=None) -> FastAPI:
             app.state.retriever = _default_retriever(settings)
         if app.state.llm is None and not settings.offline:
             app.state.llm = LLMClient(settings)
-    except Exception as exc:  # keep /health alive when artifacts/keys are missing
+    except Exception as exc:  # noqa: BLE001 - keep /health alive when artifacts/keys are missing
         app.state.error = str(exc)
 
     if STATIC_DIR.exists():
@@ -93,7 +93,10 @@ def create_app(settings: Settings, retriever=None, llm=None) -> FastAPI:
         if not retrieved:
             raise HTTPException(status_code=404, detail="no documents retrieved")
         chunks = [r.chunk for r in retrieved]
-        answer: Answer = answer_question(request.question, chunks, app.state.llm, settings)
+        try:
+            answer: Answer = answer_question(request.question, chunks, app.state.llm, settings)
+        except LLMError as exc:
+            raise HTTPException(status_code=503, detail=f"generation unavailable: {exc}") from exc
         return AskResponse(
             answer=answer.text,
             citations=[CitationOut(**c.__dict__) for c in answer.citations],
@@ -102,7 +105,7 @@ def create_app(settings: Settings, retriever=None, llm=None) -> FastAPI:
                 "top_chunk_id": chunks[0].id,
                 **getattr(app.state.retriever, "last_timings", {}),
             },
-            usage=answer.usage,
+            usage=answer.usage.as_dict(),
             latency_ms=int((time.monotonic() - started) * 1000),
         )
 

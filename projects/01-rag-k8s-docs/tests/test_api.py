@@ -1,23 +1,31 @@
+from typing import ClassVar
+
 from fastapi.testclient import TestClient
 
 from rag.api import create_app
 from rag.config import Settings
-from rag.models import Chunk, RetrievedChunk
+from rag.generate import LLMError
+from rag.models import Chunk, RetrievedChunk, Usage
 
 
 def fake_app():
     chunk = Chunk("a", "A Pod is small.", "u1", "Pods", "pods.md", "v")
 
     class FakeRetriever:
-        index = type("FakeIndex", (), {"count": 1})()
-        last_timings = {"dense_ms": 1, "bm25_ms": 2, "rerank_ms": 3}
+        index: ClassVar = type("FakeIndex", (), {"count": 1})()
+        last_timings: ClassVar = {"dense_ms": 1, "bm25_ms": 2, "rerank_ms": 3}
 
         def retrieve(self, question):
             return [RetrievedChunk(chunk, 1.0, dense_rank=1, bm25_rank=1, rerank_score=1.0)]
 
     class FakeLLM:
         def complete(self, messages, max_tokens):
-            return "A Pod is small [1].", {"prompt_tokens": 1, "completion_tokens": 1}
+            return "A Pod is small [1].", Usage(
+                provider="groq",
+                model="openai/gpt-oss-120b",
+                prompt_tokens=1,
+                completion_tokens=1,
+            )
 
     return create_app(Settings(offline=False), retriever=FakeRetriever(), llm=FakeLLM())
 
@@ -30,6 +38,19 @@ def test_ask_returns_citations():
     assert body["citations"][0]["url"] == "u1"
     assert body["answer"].startswith("A Pod")
     assert body["retrieval"]["dense_ms"] == 1
+    assert body["usage"]["provider"] == "groq"
+    assert body["usage"]["model"] == "openai/gpt-oss-120b"
+
+
+def test_provider_failure_is_503():
+    class FailingLLM:
+        def complete(self, messages, max_tokens):
+            raise LLMError("all LLM providers failed: groq: retired")
+
+    app = create_app(Settings(offline=False), retriever=fake_app().state.retriever, llm=FailingLLM())
+    r = TestClient(app).post("/ask", json={"question": "What is a Pod?"})
+    assert r.status_code == 503
+    assert "generation unavailable" in r.json()["detail"]
 
 
 def test_empty_question_is_422():

@@ -31,8 +31,24 @@ class Citation:
 
 
 @dataclass(frozen=True)
+class Usage:
+    provider: str = ""
+    model: str = ""
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
+
+    def as_dict(self) -> dict[str, int | str]:
+        return {
+            "provider": self.provider,
+            "model": self.model,
+            "prompt_tokens": self.prompt_tokens,
+            "completion_tokens": self.completion_tokens,
+        }
+
+
+@dataclass(frozen=True)
 class Answer:
     text: str
     citations: list[Citation]
-    usage: dict[str, int]
+    usage: Usage
     latency_ms: int
