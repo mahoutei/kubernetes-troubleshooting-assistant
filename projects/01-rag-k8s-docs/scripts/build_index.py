@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
@@ -20,11 +21,14 @@ def main() -> None:
     parser.add_argument("--index-dir", default="data/index")
     args = parser.parse_args()
 
+    started = time.monotonic()
     base = Settings(chunk_tokens=args.chunk_tokens, index_dir=args.index_dir)
     docs_root = download_and_extract(base)
     files = list(iter_markdown(docs_root))
     if args.limit:
         files = files[: args.limit]
+    print(f"docs root: {docs_root}", flush=True)
+    print(f"files: {len(files)}", flush=True)
 
     chunks = []
     from transformers import AutoTokenizer
@@ -45,10 +49,16 @@ def main() -> None:
         )
     if not chunks:
         raise SystemExit("no chunks produced")
+    print(f"chunks: {len(chunks)} (chunk_tokens={base.chunk_tokens})", flush=True)
 
-    embedder = Embedder(base.embed_model)
+    print("embedding and writing the index...", flush=True)
+    embedder = Embedder(base.embed_model, show_progress=True)
     build_index(chunks, embedder, base)
-    print(f"indexed {len(chunks)} chunks from {len(files)} files into {base.index_dir}")
+    print(
+        f"indexed {len(chunks)} chunks from {len(files)} files into {base.index_dir} "
+        f"in {time.monotonic() - started:.1f}s",
+        flush=True,
+    )
 
 
 if __name__ == "__main__":
