@@ -33,3 +33,10 @@ def test_offline_mode_is_extractive_and_cited():
     answer = extractive_answer("What is a Pod?", chunks())
     assert "smallest deployable unit" in answer.text
     assert answer.citations[0].id == 1
+
+
+def test_offline_citation_points_at_the_selected_chunk():
+    answer = extractive_answer("What is a Service?", chunks())
+    assert answer.text.endswith("[2]")
+    assert answer.citations[0].id == 2
+    assert answer.citations[0].url == "u2"

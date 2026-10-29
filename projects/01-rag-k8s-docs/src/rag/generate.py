@@ -15,6 +15,27 @@ Rules:
 
 CITATION_RE = re.compile(r"\[(\d+)\]")
 
+STOPWORDS = {
+    "a", "an", "the", "is", "are", "was", "were", "be", "been",
+    "what", "how", "why", "when", "where", "which", "who",
+    "of", "to", "in", "on", "for", "and", "or",
+    "do", "does", "did", "can", "could", "should",
+    "i", "you", "it", "this", "that",
+}
+
+
+def _terms(text: str) -> set[str]:
+    return {t.lower() for t in re.findall(r"[a-z0-9]+", text)} - STOPWORDS
+
+
+def _refusal() -> Answer:
+    return Answer(
+        text="I don't know based on the provided documentation.",
+        citations=[],
+        usage={"prompt_tokens": 0, "completion_tokens": 0},
+        latency_ms=0,
+    )
+
 
 def build_messages(question: str, chunks: list[Chunk]) -> list[dict[str, str]]:
     context = "\n\n".join(
@@ -78,22 +99,19 @@ def answer_question(question: str, chunks: list[Chunk], llm, settings: Settings)
 
 def extractive_answer(question: str, chunks: list[Chunk]) -> Answer:
     if not chunks:
-        return Answer(
-            text="I don't know based on the provided documentation.",
-            citations=[],
-            usage={"prompt_tokens": 0, "completion_tokens": 0},
-            latency_ms=0,
-        )
-    terms = {t.lower() for t in re.findall(r"[a-z0-9]+", question)}
-    best = max(
-        chunks,
-        key=lambda c: len(terms & {t.lower() for t in re.findall(r"[a-z0-9]+", c.text)}),
+        return _refusal()
+    query = _terms(question)
+    best_idx, best = max(
+        enumerate(chunks, start=1),
+        key=lambda pair: len(query & _terms(pair[1].text)),
     )
+    if not best.text.strip():
+        return _refusal()
     sentences = re.split(r"(?<=[.!?])\s+", best.text.strip())
-    text = " ".join(sentences[:2]).strip() + " [1]"
+    text = " ".join(sentences[:2]).strip() + f" [{best_idx}]"
     return Answer(
         text=text,
-        citations=[Citation(1, best.url, best.heading, best.id)],
+        citations=[Citation(best_idx, best.url, best.heading, best.id)],
         usage={"prompt_tokens": 0, "completion_tokens": 0},
         latency_ms=0,
     )
