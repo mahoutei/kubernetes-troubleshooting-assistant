@@ -7,6 +7,27 @@
 - Baseline commit: `a96be06`
 - Checkpointed: 2026-10-29 (branch `feat/rag-eval`)
 
+## Execution update — 2026-10-29 evening (`feat/rag-eval`)
+
+- `3b6f5c9` integration + checkpointed ledger; `6440aee` retired-model fix + fallback + typed `Usage`; `ce0248b` judge/runner/calibration/ablation harness; `d209300` certificate-state-independent tests; `93b4297` batched embeddings + index-build logging; `a7a32e3` plan/spec reconciliation + audit memos.
+- Verification at `a7a32e3`: 72 tests pass, `ruff check` clean, gold set validates.
+
+## W4 evaluation results (2026-10-29 late)
+
+Full 500-token index: 11,744 chunks from 1,460 files, 34 MB, built in 1,957.8 s on CPU (no GPU).
+
+| run | n | R@5 | R@10 | R@20 | MRR@10 | nDCG@10 | p95 ms |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| dev dense | 30 | 0.860 | 0.920 | 0.920 | 0.738 | 0.766 | 49 |
+| dev hybrid | 30 | 0.760 | 0.940 | 0.940 | 0.756 | 0.788 | 128 |
+| dev hybrid+rerank | 30 | 0.900 | 0.940 | 0.940 | 0.795 | 0.824 | 15,063 |
+| smoke hybrid (15 dev) | 15 | 0.833 | 0.900 | 0.900 | 0.800 | 0.810 | 129 |
+| smoke hybrid+rerank (15 dev) | 15 | 0.867 | 0.900 | 0.900 | 0.741 | 0.783 | 15,409 |
+
+Findings: on the 30-question dev set, hybrid raises recall@10 and nDCG over dense but lowers recall@5; the cross-encoder recovers recall@5 and improves MRR/nDCG, but costs ~15 s per query on this CPU (~118x the hybrid retrieval latency). The 15-question smoke is noisy enough that rerank's nDCG dips below hybrid there; the n=30 comparison is the one to report. No generation/judge numbers: no API key and the gold set is unsigned. 300/800 chunk-size ablations are deferred (each index build is ~33-50 min on this CPU); `scripts/run_ablations.sh` and the exact commands are ready. Results JSON is committed under `evals/results/`.
+
+- The Task 7 deferred item "retrieval aggregates must filter unanswerable questions" is resolved: unanswerable slices now omit retrieval metrics instead of reporting 0.0.
+
 ## Task 8 (recorded after the original ledger ended)
 
 - `evals/questions.jsonl`: 60 records, ids q001–q060, 30 dev / 30 test.

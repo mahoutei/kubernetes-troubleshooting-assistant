@@ -79,6 +79,7 @@ def test_run_eval_requests_top_k_and_aggregates():
     assert metrics["cost_usd_per_1k"] == 0.0
     assert metrics["prompt_tokens"] == 12
     assert "unanswerable" in payload["slices"]
+    assert "recall@10" not in payload["slices"]["unanswerable"]
     assert payload["rows"][0]["latency_ms"] == 10
 
 

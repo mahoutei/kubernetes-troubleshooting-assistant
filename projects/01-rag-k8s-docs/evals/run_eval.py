@@ -111,8 +111,11 @@ def _aggregate(rows: list[dict]) -> dict:
     answerable = [row for row in rows if row["category"] != "unanswerable"]
     unanswerable = [row for row in rows if row["category"] == "unanswerable"]
     metrics: dict = {"n": len(rows)}
-    for key in RETRIEVAL_KEYS:
-        metrics[key] = mean(row[key] for row in answerable)
+    if answerable:
+        # Unanswerable questions have no gold sources, so retrieval scores are
+        # undefined for that slice rather than zero.
+        for key in RETRIEVAL_KEYS:
+            metrics[key] = mean(row[key] for row in answerable)
 
     generated = [row for row in answerable if "fact_coverage" in row]
     if generated:
