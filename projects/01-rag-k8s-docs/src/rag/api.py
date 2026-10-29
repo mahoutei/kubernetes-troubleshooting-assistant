@@ -39,6 +39,10 @@ def _default_retriever(settings: Settings) -> Retriever:
     from rag.embed import Embedder
     from rag.index import Index
 
+    if not Path(settings.index_dir).is_dir():
+        raise FileNotFoundError(
+            f"index not found: {settings.index_dir}; run scripts/build_index.py"
+        )
     return Retriever(
         Index.load(settings),
         Embedder(settings.embed_model),

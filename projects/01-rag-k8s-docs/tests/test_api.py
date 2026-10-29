@@ -2,7 +2,7 @@ from fastapi.testclient import TestClient
 
 from rag.api import create_app
 from rag.config import Settings
-from rag.models import Answer, Chunk, Citation, RetrievedChunk
+from rag.models import Chunk, RetrievedChunk
 
 
 def fake_app():
@@ -42,3 +42,15 @@ def test_health_reports_ready():
     body = client.get("/health").json()
     assert body["status"] == "ok"
     assert body["chunks"] == 1
+
+
+def test_missing_index_is_degraded(tmp_path):
+    client = TestClient(create_app(Settings(index_dir=str(tmp_path / "missing"), offline=True)))
+    body = client.get("/health").json()
+    assert body["status"] == "degraded"
+    assert "index not found" in body["error"]
+
+
+def test_missing_index_ask_is_503(tmp_path):
+    client = TestClient(create_app(Settings(index_dir=str(tmp_path / "missing"), offline=True)))
+    assert client.post("/ask", json={"question": "What is a Pod?"}).status_code == 503
