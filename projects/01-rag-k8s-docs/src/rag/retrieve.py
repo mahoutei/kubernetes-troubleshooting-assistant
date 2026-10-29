@@ -53,7 +53,10 @@ class Retriever:
         )
         self.last_timings: dict[str, int] = {}
 
-    def retrieve(self, question: str) -> list[RetrievedChunk]:
+    def retrieve(self, question: str, top_k: int | None = None) -> list[RetrievedChunk]:
+        limit = self.top_k_context if top_k is None else top_k
+        if limit < 1:
+            raise ValueError("top_k must be >= 1")
         dense_started = time.perf_counter()
         vector = self.embedder.encode([question])[0]
         dense = self.index.dense_search(vector, self.top_k_dense)
@@ -67,7 +70,7 @@ class Retriever:
                     score=score,
                     dense_rank=rank,
                 )
-                for rank, (doc_id, score) in enumerate(dense[: self.top_k_context], start=1)
+                for rank, (doc_id, score) in enumerate(dense[:limit], start=1)
             ]
 
         bm25_started = time.perf_counter()
@@ -87,15 +90,16 @@ class Retriever:
                     dense_rank=dense_rank.get(doc_id),
                     bm25_rank=bm25_rank.get(doc_id),
                 )
-                for doc_id, score in fused[: self.top_k_context]
+                for doc_id, score in fused[:limit]
             ]
 
-        candidates = [self.index.get(doc_id) for doc_id, _ in fused[: self.top_k_rerank]]
+        pool = fused[: max(limit, self.top_k_rerank)]
+        candidates = [self.index.get(doc_id) for doc_id, _ in pool]
         rerank_started = time.perf_counter()
         scores = self.reranker.score(question, [c.text for c in candidates])
         rerank_ms = int((time.perf_counter() - rerank_started) * 1000)
         self.last_timings = {"dense_ms": dense_ms, "bm25_ms": bm25_ms, "rerank_ms": rerank_ms}
-        ranked = sorted(zip(candidates, scores), key=lambda pair: -pair[1])[: self.top_k_context]
+        ranked = sorted(zip(candidates, scores), key=lambda pair: -pair[1])[:limit]
         return [
             RetrievedChunk(
                 chunk=chunk,

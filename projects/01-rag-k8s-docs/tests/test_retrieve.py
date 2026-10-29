@@ -42,3 +42,69 @@ def test_retriever_fuses_and_reranks():
     assert results[0].dense_rank == 2
     assert results[0].bm25_rank == 1
     assert results[0].rerank_score == 0.9
+
+
+def test_retrieve_honours_top_k_beyond_context_size():
+    chunks = {
+        f"c{i}": Chunk(f"c{i}", f"text {i}", f"https://x/{i}", "H", f"{i}.md", "v")
+        for i in range(25)
+    }
+
+    class FakeIndex:
+        count = 25
+
+        def dense_search(self, vector, k):
+            return [(f"c{i}", float(i)) for i in range(25)]
+
+        def bm25_search(self, query, k):
+            return [(f"c{i}", float(25 - i)) for i in range(25)]
+
+        def get(self, chunk_id):
+            return chunks[chunk_id]
+
+    class FakeEmbedder:
+        def encode(self, texts):
+            return np.zeros((len(texts), 4), dtype=np.float32)
+
+    class FakeReranker:
+        def score(self, query, texts):
+            return [float(len(text)) for text in texts]
+
+    retriever = Retriever(FakeIndex(), FakeEmbedder(), FakeReranker(), top_k_context=5)
+    assert len(retriever.retrieve("q")) == 5
+    assert len(retriever.retrieve("q", top_k=20)) == 20
+
+    dense = Retriever(FakeIndex(), FakeEmbedder(), FakeReranker(), top_k_context=5, dense_only=True)
+    assert len(dense.retrieve("q", top_k=20)) == 20
+
+
+def test_retrieve_rejects_non_positive_top_k():
+    chunks = {"a": Chunk("a", "alpha", "u", "H", "a.md", "v")}
+
+    class FakeIndex:
+        count = 1
+
+        def dense_search(self, vector, k):
+            return [("a", 0.1)]
+
+        def bm25_search(self, query, k):
+            return [("a", 0.1)]
+
+        def get(self, chunk_id):
+            return chunks[chunk_id]
+
+    class FakeEmbedder:
+        def encode(self, texts):
+            return np.zeros((len(texts), 4), dtype=np.float32)
+
+    class FakeReranker:
+        def score(self, query, texts):
+            return [0.5 for _ in texts]
+
+    retriever = Retriever(FakeIndex(), FakeEmbedder(), FakeReranker())
+    try:
+        retriever.retrieve("q", top_k=0)
+    except ValueError as exc:
+        assert "top_k" in str(exc)
+    else:
+        raise AssertionError("expected ValueError")

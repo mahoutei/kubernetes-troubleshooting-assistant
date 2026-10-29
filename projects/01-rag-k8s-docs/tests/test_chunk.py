@@ -44,9 +44,9 @@ def test_chunk_text_overlaps_blocks():
 
 
 def test_parse_ignores_headings_inside_fences():
-    text = "# Pods\n\nRun this:\n\n```bash\n# list all pods\nkubectl get pods\n```\n\nAfter the fence.\n"
+    text = "# Pods\n\nExample manifest:\n\n```yaml\n# pod name\nkind: Pod\nmetadata:\n  name: demo\n```\n\nAfter the fence.\n"
     chunks = parse_markdown(text, "concepts/pods.md", "release-1.34")
     assert len(chunks) == 1
-    assert "```bash\n# list all pods\nkubectl get pods\n```" in chunks[0].text
+    assert "```yaml\n# pod name\nkind: Pod" in chunks[0].text
     assert "After the fence." in chunks[0].text
-    assert not any(c.url.endswith("#list-all-pods") for c in chunks)
+    assert not any(c.url.endswith("#pod-name") for c in chunks)

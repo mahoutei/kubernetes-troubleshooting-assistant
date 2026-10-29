@@ -54,6 +54,30 @@ def _normalize(text: str) -> str:
     return re.sub(r"\s+", " ", re.sub(r"[^a-z0-9 ]", " ", text.lower())).strip()
 
 
+REFUSAL_NORMALIZED = "i don t know based on the provided documentation"
+
+
+def is_refusal(text: str) -> bool:
+    """True when the answer uses the documented refusal sentence."""
+    return REFUSAL_NORMALIZED in _normalize(text)
+
+
+def mean(values) -> float:
+    values = list(values)
+    return sum(values) / len(values) if values else 0.0
+
+
+def percentile(values, p: float) -> float:
+    """Nearest-rank percentile; returns 0.0 for an empty sample."""
+    values = sorted(values)
+    if not values:
+        return 0.0
+    if not 0 <= p <= 100:
+        raise ValueError("percentile must be in [0, 100]")
+    rank = math.ceil(p / 100 * len(values))
+    return float(values[max(0, rank - 1)])
+
+
 def fact_coverage(answer: str, facts: list[str]) -> float:
     if not facts:
         return 1.0

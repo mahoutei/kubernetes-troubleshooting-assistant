@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Fine-tune Qwen2.5-1.5B-Instruct with LoRA to emit reliable tool calls, then quantify base vs tuned vs prompted-70B quality, latency, and cost.
+**Goal:** Fine-tune Qwen2.5-1.5B-Instruct with LoRA to emit reliable tool calls, then quantify base vs tuned vs prompted free-tier API model (`openai/gpt-oss-120b`) quality, latency, and cost per 1k calls.
 
-**Architecture:** Public Hermes/Glaive conversations → normalized single-turn examples → split by tool-schema hash → 4-bit QLoRA with Unsloth on a free Colab T4 → local inference + deterministic parsing → eval harness with tool-name, argument, JSON-validity, and exact-match metrics → HF Hub adapter + model card.
+**Architecture:** Public Hermes/Glaive conversations → normalized single-turn examples → dedupe → split by normalized tool-schema hash → 4-bit QLoRA with Unsloth on a free Colab T4 → local inference + deterministic parsing → eval harness with tool-name, argument, JSON-validity, exact-match, latency, and token-cost metrics → HF Hub adapter + model card.
 
 **Tech Stack:** Python 3.12, uv, Hugging Face datasets/transformers/peft/trl, Unsloth, bitsandbytes, PyYAML, HF Hub, pytest, GitHub Actions.
 
@@ -13,21 +13,28 @@
 ## Global Constraints
 
 - Public data only, no auth: `NousResearch/hermes-function-calling-v1` (Apache-2.0).
-- Dataset files: `func-calling-singleturn.json` (1,893 rows) and `glaive-function-calling-5k.json` (5,209 rows).
+- Dataset is pinned to revision `dae3e1d28cfbcf4b915c04ea1e072030529b4bda`. Files: `func-calling-singleturn.json` (1,893 rows, 17,793,686 bytes, sha256 `fb2df9fe3f295dfd65b223c2dbf04d6b90006357d737f8f8927749f0bea09527`) and `glaive-function-calling-5k.json` (5,209 rows, 20,416,419 bytes, sha256 `b98eb3f160359f27ad15018e974ce6db444f566eb5be4aa9e4aa690b34d50832`). The committed lock file is the source of truth; downloads verify checksum and row counts.
 - Base model: `Qwen/Qwen2.5-1.5B-Instruct` (Apache-2.0).
-- Split by tool-schema hash, never by row; no schema may appear in more than one split.
-- Training runs on Colab/Kaggle free GPU. Local tests must run on CPU without downloading model weights.
-- No fabricated results: every README number comes from a committed results JSON.
+- Prompted baseline: Groq `openai/gpt-oss-120b` (free tier). This replaces `llama-3.3-70b-versatile`, which Groq shut down on 2026-08-16; the plan never calls it "70B". Gemini `gemini-2.5-flash` is the documented fallback if the Groq free tier is unavailable; results record which provider/model produced them.
+- No model ID may be hardcoded inline: prompts/scripts read the provider config, and a retired model must fail loudly (`404` / `model_not_found`), never degrade to empty predictions.
+- Split by normalized tool-schema hash, never by row; no schema may appear in more than one split. Normalization uses tool names + parameter paths/types only (descriptions, defaults, and examples are ignored).
+- Dedupe near-identical examples (same normalized user prompt + same target calls) before splitting, and record the residual limitation in the README and model card.
+- Training runs on Colab/Kaggle free GPU with fp16 on T4. Local tests must run on CPU without downloading model weights or API keys.
+- No fabricated results: every README/model-card number comes from a committed results JSON, which records token usage and a cost basis.
+- Artifact policy: raw data, processed data, adapters, checkpoints, and training logs are not committed; only the lock file, manifests, scripts, results JSON, README, and model card are. `.gitignore` is created with the project in Task 1.
 - Commit after every task.
 
 ## Review Focus
 
-- **Same tool schema in train and test:** split must fail loudly, not silently leak.
+- **Same tool schema in train and test:** normalized split must fail loudly, and an independent leak test must catch any overlap.
+- **Near-duplicate prompt in two schemas:** dedupe is applied before splitting; residual risk is documented rather than hidden.
 - **Model emits multiple tool calls or nested arguments:** parser and metrics handle both; no crash.
 - **Model emits malformed JSON or plain text:** counted as invalid, not a runner crash.
 - **Adapter path missing or wrong base model:** inference raises a clear error.
-- **70B API returns prose instead of a tool call:** parsed as invalid, recorded, not retried forever.
-- **Colab OOM:** max sequence length + gradient accumulation + 4-bit loading keep the 1.5B model inside a T4.
+- **API returns prose instead of a tool call:** parsed as invalid and recorded, not retried forever.
+- **Retired/unknown API model:** the predictor raises on `model_not_found`/`404`; it never swallows every exception into `([], "")`.
+- **T4 is fp16-only:** training config sets `fp16=True` and never requests bf16; eval uses `eval_strategy="steps"` so the validation split is actually scored.
+- **Colab OOM:** max sequence length + gradient accumulation + 4-bit loading keep the 1.5B model inside a T4; `resume_from_checkpoint` survives a disconnected session.
 - **Chat template adds special tokens:** prompt/target roundtrip test catches it before training.
 
 ---
@@ -37,35 +44,51 @@
 **Files:**
 - Create: `projects/02-finetune-function-calling/pyproject.toml`
 - Create: `projects/02-finetune-function-calling/.python-version`
+- Create: `projects/02-finetune-function-calling/.gitignore`
 - Create: `projects/02-finetune-function-calling/src/__init__.py`
 - Create: `projects/02-finetune-function-calling/src/data.py`
 - Create: `projects/02-finetune-function-calling/tests/fixtures/hermes_sample.json`
 - Create: `projects/02-finetune-function-calling/tests/test_data.py`
 
 **Interfaces:**
-- Produces: `Example(id: str, tools: list[dict], user: str, calls: list[dict], source: str)`, `extract_tagged_json(text: str, tag: str) -> list[dict]`, `parse_hermes_row(row: dict, source: str) -> Example | None`, `load_examples(paths: list[Path]) -> list[Example]`, `dedupe(examples) -> list[Example]`, `schema_hash(tools) -> str`, `split_examples(examples, seed=42, ratios=(0.8, 0.1, 0.1)) -> dict[str, list[Example]]`, `write_jsonl(examples, path)`.
+- Produces: `Example(id: str, tools: list[dict], user: str, calls: list[dict], source: str)`, `extract_tagged_json(text: str, tag: str) -> list[dict]`, `parse_hermes_row(row: dict, source: str) -> Example | None`, `load_examples(paths: list[Path]) -> list[Example]`, `dedupe(examples) -> list[Example]`, `dedupe_near(examples) -> list[Example]`, `schema_hash(tools) -> str`, `find_schema_leaks(splits) -> dict[str, set[str]]`, `assert_split_integrity(examples, splits) -> dict[str, int]`, `split_examples(examples, seed=42, ratios=(0.8, 0.1, 0.1)) -> dict[str, list[Example]]`, `write_jsonl(examples, path)`.
 - `extract_tagged_json` uses `json.JSONDecoder.raw_decode`, so nested braces inside `<tool_call>` are safe.
-- Rows without a valid assistant tool call are skipped.
-- Split groups by schema hash; the function raises `ValueError` if any hash appears in two splits.
+- `parse_hermes_row` reads the top-level `tools` column first (a JSON string in the real dataset) and falls back to the `<tools>` tag in the system message; rows without a valid assistant tool call are skipped.
+- `schema_hash` normalizes each tool to its function name + sorted parameter paths/types. Descriptions, defaults, examples, required lists, and enum ordering do not affect the hash.
+- `load_examples` applies exact dedupe and near-duplicate dedupe (same normalized user prompt + same target calls) before returning.
+- Split groups by schema hash; `assert_split_integrity` re-derives counts and schema ownership from the examples and raises `ValueError` on empty splits, a count mismatch, or a cross-split schema. `find_schema_leaks` is exposed so an independent test can cross-check it.
+- `.gitignore` excludes `data/raw/`, `data/processed/`, `outputs/`, `artifacts/`, and `**/checkpoint-*/` (artifact policy lives here, not in the root `.gitignore`).
 
 - [ ] **Step 1: Create the fixture**
+
+The real dataset rows have a top-level `tools` column that is a JSON string; the system message repeats the schemas inside `<tools>` tags. The fixture mirrors that shape, plus one row that only has the tag form.
 
 ```json
 [
   {
     "id": "row-1",
+    "tools": "[{\"type\":\"function\",\"function\":{\"name\":\"get_stock_price\",\"description\":\"Get a stock price\",\"parameters\":{\"type\":\"object\",\"properties\":{\"company\":{\"type\":\"string\"}},\"required\":[\"company\"]}}}]",
     "conversations": [
-      {"from": "system", "value": "You are a function calling AI model. <tools>[{\"type\":\"function\",\"function\":{\"name\":\"get_stock_price\",\"description\":\"Get a stock price\",\"parameters\":{\"type\":\"object\",\"properties\":{\"company\":{\"type\":\"string\"}},\"required\":[\"company\"]}}}]</tools>"},
+      {"from": "system", "value": "You are a function calling AI model. <tools>[{\"type\":\"function\",\"function\":{\"name\":\"get_stock_price\",\"parameters\":{\"type\":\"object\",\"properties\":{\"company\":{\"type\":\"string\"}}}}}]</tools>"},
       {"from": "human", "value": "What is Apple's stock price?"},
       {"from": "gpt", "value": "<tool_call>\n{\"name\": \"get_stock_price\", \"arguments\": {\"company\": \"Apple\"}}\n</tool_call>"}
     ]
   },
   {
     "id": "row-2",
+    "tools": "[{\"type\":\"function\",\"function\":{\"name\":\"get_news\",\"parameters\":{\"type\":\"object\",\"properties\":{\"country\":{\"type\":\"string\"}}}}}]",
     "conversations": [
-      {"from": "system", "value": "<tools>[{\"type\":\"function\",\"function\":{\"name\":\"get_news\",\"parameters\":{\"type\":\"object\",\"properties\":{\"country\":{\"type\":\"string\"}}}}}]</tools>"},
+      {"from": "system", "value": "You are a function calling AI model."},
       {"from": "human", "value": "Tell me the news."},
       {"from": "gpt", "value": "I cannot do that."}
+    ]
+  },
+  {
+    "id": "row-3",
+    "conversations": [
+      {"from": "system", "value": "You are a function calling AI model. <tools>[{\"type\":\"function\",\"function\":{\"name\":\"get_weather\",\"parameters\":{\"type\":\"object\",\"properties\":{\"city\":{\"type\":\"string\"}}}}}]</tools>"},
+      {"from": "human", "value": "What is the weather in Paris?"},
+      {"from": "gpt", "value": "<tool_call>\n{\"name\": \"get_weather\", \"arguments\": {\"city\": \"Paris\"}}\n</tool_call>"}
     ]
   }
 ]
@@ -81,13 +104,30 @@ from pathlib import Path
 import pytest
 
 from src.data import (
+    Example,
+    assert_split_integrity,
     dedupe,
+    dedupe_near,
     extract_tagged_json,
+    find_schema_leaks,
     load_examples,
     parse_hermes_row,
     schema_hash,
     split_examples,
 )
+
+
+def _examples(n: int = 6) -> list[Example]:
+    return [
+        Example(
+            str(i),
+            [{"type": "function", "function": {"name": f"f{i}", "parameters": {}}}],
+            "u",
+            [{"name": f"f{i}", "arguments": {}}],
+            "t",
+        )
+        for i in range(n)
+    ]
 
 
 def test_extract_tagged_json_handles_nested_braces():
@@ -105,13 +145,22 @@ def test_extract_tools_keeps_the_array_intact():
     assert extract_tagged_json(text, "tools") == [[{"name": "a"}, {"name": "b"}]]
 
 
-def test_parse_row_extracts_tools_and_calls():
+def test_parse_row_prefers_the_top_level_tools_column():
     row = json.loads(Path("tests/fixtures/hermes_sample.json").read_text())[0]
     example = parse_hermes_row(row, "singleturn")
     assert example is not None
     assert example.tools[0]["function"]["name"] == "get_stock_price"
+    # The top-level column carries the description; the in-message tag copy does not.
+    assert example.tools[0]["function"]["description"] == "Get a stock price"
     assert example.calls[0]["name"] == "get_stock_price"
     assert example.source == "singleturn"
+
+
+def test_parse_row_falls_back_to_the_system_tag():
+    rows = json.loads(Path("tests/fixtures/hermes_sample.json").read_text())
+    example = parse_hermes_row(rows[2], "singleturn")
+    assert example is not None
+    assert example.tools[0]["function"]["name"] == "get_weather"
 
 
 def test_parse_row_skips_no_tool_call():
@@ -125,30 +174,92 @@ def test_schema_hash_is_order_insensitive():
     assert schema_hash(a) == schema_hash(b)
 
 
-def test_split_has_no_schema_overlap():
-    from src.data import Example
+def test_schema_hash_ignores_descriptions_defaults_and_examples():
+    a = [{"type": "function", "function": {"name": "x", "description": "one", "parameters": {
+        "type": "object", "properties": {"q": {"type": "string", "description": "query", "default": "y"}},
+    }}}]
+    b = [{"type": "function", "function": {"name": "x", "description": "two", "parameters": {
+        "type": "object", "properties": {"q": {"type": "string", "description": "different", "examples": ["z"]}},
+    }}}]
+    assert schema_hash(a) == schema_hash(b)
 
-    examples = [
-        Example(
-            str(i),
-            [{"type": "function", "function": {"name": f"f{i}", "parameters": {}}}],
-            "u",
-            [{"name": f"f{i}", "arguments": {}}],
-            "t",
-        )
-        for i in range(6)
-    ]
+
+def test_schema_hash_changes_with_parameter_paths():
+    a = [{"type": "function", "function": {"name": "x", "parameters": {
+        "type": "object", "properties": {"q": {"type": "string"}},
+    }}}]
+    b = [{"type": "function", "function": {"name": "x", "parameters": {
+        "type": "object", "properties": {"q": {"type": "string"}, "limit": {"type": "integer"}},
+    }}}]
+    assert schema_hash(a) != schema_hash(b)
+
+
+def _independent_signature(tools: list[dict]) -> tuple:
+    """Re-derive schema identity without calling src.data.schema_hash."""
+    signature = []
+    for tool in tools:
+        function = tool.get("function", tool)
+        paths: list[str] = []
+
+        def walk(schema: dict, prefix: str = "") -> None:
+            for name, prop in (schema.get("properties") or {}).items():
+                path = f"{prefix}.{name}" if prefix else name
+                paths.append(f"{path}:{prop.get('type')}")
+                walk(prop, path)
+
+        walk(function.get("parameters") or {})
+        signature.append((function["name"], tuple(sorted(paths))))
+    return tuple(sorted(signature))
+
+
+def test_split_leak_check_is_independent_of_the_splitter():
+    splits = split_examples(_examples(), seed=0, ratios=(0.5, 0.25, 0.25))
+    owners: dict[tuple, set[str]] = {}
+    for name, items in splits.items():
+        for example in items:
+            owners.setdefault(_independent_signature(example.tools), set()).add(name)
+    assert all(len(names) == 1 for names in owners.values())
+    assert find_schema_leaks(splits) == {}
+
+
+def test_split_counts_cover_every_example():
+    examples = _examples()
     splits = split_examples(examples, seed=0, ratios=(0.5, 0.25, 0.25))
-    hashes = {name: {schema_hash(e.tools) for e in items} for name, items in splits.items()}
-    assert not (hashes["train"] & hashes["val"])
-    assert not (hashes["train"] & hashes["test"])
-    assert not (hashes["val"] & hashes["test"])
+    counts = assert_split_integrity(examples, splits)
+    assert set(counts) == {"train", "val", "test"}
+    assert sum(counts.values()) == len(examples)
+
+
+def test_split_integrity_rejects_dropped_rows():
+    examples = _examples()
+    splits = split_examples(examples, seed=0, ratios=(0.5, 0.25, 0.25))
+    splits["test"] = splits["test"][:-1]
+    with pytest.raises(ValueError, match="do not cover"):
+        assert_split_integrity(examples, splits)
 
 
 def test_dedupe_removes_identical_examples():
     row = json.loads(Path("tests/fixtures/hermes_sample.json").read_text())[0]
     example = parse_hermes_row(row, "singleturn")
     assert len(dedupe([example, example])) == 1
+
+
+def test_dedupe_near_normalizes_prompt_variants():
+    base = Example("1", [{"type": "function", "function": {"name": "f"}}], "What is Apple's stock price?",
+                   [{"name": "f", "arguments": {"company": "Apple"}}], "t")
+    variant = Example("2", base.tools, "  what is apple's   stock price ", base.calls, "t")
+    other = Example("3", base.tools, base.user, [{"name": "f", "arguments": {"company": "MSFT"}}], "t")
+    assert len(dedupe_near([base, variant])) == 1
+    assert len(dedupe_near([base, other])) == 2
+
+
+def test_load_examples_dedupes_across_files(tmp_path):
+    rows = json.loads(Path("tests/fixtures/hermes_sample.json").read_text())
+    first = tmp_path / "func-calling-singleturn.json"
+    second = tmp_path / "glaive-function-calling-5k.json"
+    first.write_text(json.dumps(rows[:1]))
+    second.write_text(json.dumps(rows[:1]))
+    assert len(load_examples([first, second])) == 1
 ```
 
 - [ ] **Step 3: Run tests to verify they fail**

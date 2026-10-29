@@ -4,8 +4,10 @@ from evals.metrics import (
     citation_precision_recall,
     cohen_kappa,
     fact_coverage,
+    is_refusal,
     mrr_at_k,
     ndcg_at_k,
+    percentile,
     recall_at_k,
 )
 
@@ -50,3 +52,15 @@ def test_fact_coverage_normalizes_case_and_punctuation():
 
 def test_cohen_kappa_perfect_agreement():
     assert cohen_kappa([1, 0, 1], [1, 0, 1]) == 1.0
+
+
+def test_refusal_detection_ignores_case_and_punctuation():
+    assert is_refusal("I don't know based on the provided documentation.")
+    assert not is_refusal("A Pod is the smallest deployable unit.")
+
+
+def test_percentile_nearest_rank():
+    values = list(range(1, 21))
+    assert percentile(values, 95) == 19.0
+    assert percentile(values, 100) == 20.0
+    assert percentile([], 95) == 0.0
