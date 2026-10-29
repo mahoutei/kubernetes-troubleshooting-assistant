@@ -53,6 +53,17 @@ def _split_blocks(text: str) -> list[str]:
     return [b for b in blocks if b]
 
 
+def _mask_fenced_lines(text: str) -> str:
+    """Blank out fenced lines so heading scans ignore `#` comments in code."""
+    masked: list[str] = []
+    in_fence = False
+    for line in text.splitlines(keepends=True):
+        if line.startswith("```"):
+            in_fence = not in_fence
+        masked.append(re.sub(r"[^\n]", " ", line) if in_fence else line)
+    return "".join(masked)
+
+
 def chunk_text(
     text: str,
     max_tokens: int,
@@ -107,7 +118,7 @@ def parse_markdown(
 
     chunks: list[Chunk] = []
     heading_stack: list[tuple[int, str]] = []
-    positions = list(HEADING_RE.finditer(body))
+    positions = list(HEADING_RE.finditer(_mask_fenced_lines(body)))
     sections: list[tuple[str, str, str]] = []
     if not positions:
         sections.append(("", meta.get("title", ""), body))

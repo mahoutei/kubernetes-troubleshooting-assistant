@@ -41,3 +41,12 @@ def test_chunk_text_overlaps_blocks():
     chunks = chunk_text(text, max_tokens=4, overlap=0.5, count_tokens=word_count)
     assert len(chunks) >= 2
     assert set(chunks[1].split()) & set(chunks[0].split())
+
+
+def test_parse_ignores_headings_inside_fences():
+    text = "# Pods\n\nRun this:\n\n```bash\n# list all pods\nkubectl get pods\n```\n\nAfter the fence.\n"
+    chunks = parse_markdown(text, "concepts/pods.md", "release-1.34")
+    assert len(chunks) == 1
+    assert "```bash\n# list all pods\nkubectl get pods\n```" in chunks[0].text
+    assert "After the fence." in chunks[0].text
+    assert not any(c.url.endswith("#list-all-pods") for c in chunks)
