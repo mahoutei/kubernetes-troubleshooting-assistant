@@ -42,7 +42,7 @@ Answer Kubernetes documentation questions with verifiable citations and publish 
 
 ### 3.2 Corpus
 
-- Source: `kubernetes/website` markdown, pinned to a tagged release (v1.34 line), downloaded as a tarball at build time.
+- Source: `kubernetes/website` markdown from branch `release-1.34`, pinned to commit `47132eb5367cfdcba0a3b33a0b3ffc81185bd7e8`, downloaded as a tarball at build time.
 - Include `content/en/docs/**` (concepts, tasks, tutorials, reference); exclude blog, case studies, generated API reference.
 - Preserve source path, heading, anchor URL, and docs version in every chunk.
 - Pin the exact commit/tag in config; never scrape live docs at runtime.
@@ -52,7 +52,7 @@ Answer Kubernetes documentation questions with verifiable citations and publish 
 1. **Ingest:** strip frontmatter and Hugo shortcodes; keep headings, code blocks, and lists.
 2. **Chunk:** heading-aware, target ~500 tokens with ~15% overlap; never split a code block. Chunk config is parameterised for ablations (300/500/800).
 3. **Embed:** `BAAI/bge-small-en-v1.5`, local CPU, normalised vectors.
-4. **Index:** LanceDB vector table + `bm25s` keyword index, both built at Docker build time.
+4. **Index:** LanceDB vector table + BM25 (`rank_bm25`) keyword index, both built at image build time.
 5. **Retrieve:** dense top-50 + BM25 top-50 → reciprocal rank fusion (k=60) → top-20 → cross-encoder rerank (`BAAI/bge-reranker-base`) → top-5 context.
 6. **Generate:** free-tier LLM (Groq primary, Gemini fallback) with a citation-enforcing prompt. Refuse when retrieved context is insufficient. Return answer, citations, retrieval metadata, token usage, latency.
 7. **Serve:** FastAPI `POST /ask`, `GET /health`, and a minimal HTML/JS page at `/`. One container, no Streamlit/Gradio dependency.
@@ -139,12 +139,20 @@ projects/01-rag-k8s-docs/
     retrieve.py
     generate.py
     api.py
-    offline.py
   scripts/build_index.py
+  scripts/run_ablations.sh
+  scripts/deploy_space.sh
   evals/
     questions.jsonl
+    CERTIFICATION.md
+    schema.py
+    metrics.py
+    validate_questions.py
     run_eval.py
     judge.py
+    calibrate_judge.py
+    calibration.jsonl
+    summarize.py
     results/
     cache/
   tests/
@@ -159,8 +167,8 @@ Fine-tune a small open model to emit reliable tool calls, then quantify the trad
 
 ### 4.2 Data
 
-- Dataset: `Salesforce/xlam-function-calling-60k` (CC-BY-4.0, no auth).
-- Subset: ~10k train / 500 val / 500 test, deduplicated.
+- Dataset: `NousResearch/hermes-function-calling-v1` (Apache-2.0, public, no auth), using the 1,893 single-turn examples plus the first human→tool-call turn from the 5,209 cleaned Glaive examples (~7.1k total).
+- Split 80/10/10 (~5.7k train / 710 val / 710 test), deduplicated by (system, user, assistant) text.
 - Split by tool-schema hash, not by row, so test tool sets never appear in training.
 - Store only manifests and scripts in git; download data reproducibly.
 
@@ -174,7 +182,7 @@ Fine-tune a small open model to emit reliable tool calls, then quantify the trad
 
 ### 4.4 Evaluation
 
-- 500 held-out examples.
+- ~710 held-out examples.
 - Metrics: tool-name accuracy, argument exact/F1, full-call exact match, JSON validity, p95 latency, cost per 1k calls.
 - Comparisons: base model, LoRA adapter, prompted 70B via free API.
 - Constrained JSON decoding with Outlines for local models; report the effect if time allows.
@@ -190,15 +198,21 @@ projects/02-finetune-function-calling/
   pyproject.toml
   config.yaml
   reproduce.sh
+  MODEL_CARD.md
   training/train.py
   training/colab.ipynb
+  scripts/prepare_data.py
+  scripts/run_comparison.sh
+  scripts/upload_adapter.py
   src/
     data.py
-    schema.py
+    prompts.py
     infer.py
-    evaluate.py
+    metrics.py
+    api_baseline.py
   evals/
     run_eval.py
+    forgetting.py
     results/
   tests/
 ```
@@ -207,7 +221,8 @@ projects/02-finetune-function-calling/
 
 ```text
 README.md                 # portfolio index, results table, links, diagrams
-docs/superpowers/specs/   # this spec and implementation plan
+docs/superpowers/specs/   # this design spec
+docs/superpowers/plans/   # per-project implementation plans
 docs/research/            # baseline teardown memo
 projects/01-rag-k8s-docs/
 projects/02-finetune-function-calling/
@@ -223,7 +238,7 @@ The root README is the landing page: one-paragraph pitch, project cards with res
 
 1. Tear down `kvsdileep/rag-for-engineers`, `Raudaschl/rag-fusion`, `Vikas9892/rag_evaluation`: architecture, eval approach, reusable pieces, licenses, weaknesses.
 2. Tear down `deshpandetanmay/qlora-structured-extraction`, `aghasalim/lora-forgetting`: training/eval structure, pitfalls, reusable ideas.
-3. Verify corpus/dataset/API feasibility: K8s docs paths and license, XLAM dataset schema/license, Groq/Gemini free-tier limits.
+3. Verify corpus/dataset/API feasibility: K8s docs paths and license, Hermes function-calling dataset schema/license, Groq/Gemini free-tier limits.
 
 Deliverable: `docs/research/baselines.md` with a borrow / don’t-borrow table. Read-only; no code copied.
 
@@ -231,7 +246,7 @@ Deliverable: `docs/research/baselines.md` with a borrow / don’t-borrow table. 
 
 **Phase 2 — Build in waves.** Maximum 2–3 agents in parallel, on disjoint files/worktrees.
 
-- Wave A: repo scaffold + CI; corpus ingest/chunker; eval gold-set draft; XLAM data prep.
+- Wave A: repo scaffold + CI; corpus ingest/chunker; eval gold-set draft; Hermes data prep.
 - Wave B: index + hybrid retrieval + rerank; API/UI; fine-tune training run; eval harness.
 - Wave C: ablations; judge calibration; HF Space deploy; HF Hub model card; READMEs; review pass.
 
@@ -250,9 +265,9 @@ Deliverable: `docs/research/baselines.md` with a borrow / don’t-borrow table. 
 | `Raudaschl/rag-fusion` | MIT | Fusion logic ideas; attribute if adapted |
 | `deshpandetanmay/qlora-structured-extraction` | Apache-2.0 | Project structure and eval ideas; attribute |
 | `aghasalim/lora-forgetting` | MIT | Forgetting-check idea; attribute |
-| `Salesforce/xlam-function-calling-60k` | CC-BY-4.0 | Training/eval data; cite |
+| `NousResearch/hermes-function-calling-v1` | Apache-2.0 | Training/eval data; cite |
 | Kubernetes website docs | CC-BY-4.0 | Corpus; attribute |
-| Unsloth / TRL / PEFT / Outlines / LanceDB / bm25s / sentence-transformers / FastAPI | Apache-2.0 or MIT | Dependencies |
+| Unsloth / TRL / PEFT / Outlines / LanceDB / rank_bm25 / sentence-transformers / FastAPI | Apache-2.0 or MIT | Dependencies |
 
 ## 8. Risks and mitigations
 
@@ -281,6 +296,6 @@ Auth, multi-user support, chat history, streaming, a vector-DB server, Kubernete
 ## 11. Open decisions resolved
 
 - Corpus: Kubernetes docs.
-- Fine-tune task: function calling on XLAM.
+- Fine-tune task: function calling on the Hermes/Glaive dataset.
 - Eval tooling: custom Python harness, not RAGAS/promptfoo in the critical path.
 - No third project; polish beats breadth.
