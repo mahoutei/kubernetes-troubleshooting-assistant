@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.uv-cache/
+.uv-python/
+
+# Local model / dataset / corpus caches (rebuilt by scripts)
+.hf-cache/
+projects/*/data/
+projects/*/evals/cache/
+
+# Test and lint caches
+.pytest_cache/
+.ruff_cache/
+
+# Agent execution state
+.superpowers/
+
+# Secrets and local env
+.env
+.env.*
+
+# OS
+.DS_Store
