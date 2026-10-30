@@ -11,7 +11,7 @@
 |---|---|---|
 | 1. Scaffold + data ingestion | complete (`62ab3b9`) | 17 tests in `tests/test_data.py` |
 | 2. Prompts + dataset preparation | complete (`62ab3b9`) | 4 tests; real manifest produced |
-| 3. QLoRA training script/notebook | not started | gated on data + Colab GPU for the run |
+| 3. QLoRA training script/notebook | code complete; Colab smoke test pending | 24 tests; `training/train.py`, `config.yaml`, `training/colab.ipynb` |
 | 4-6. Inference/metrics/API baseline | not started | next block |
 | 7-9. Forgetting/comparison/model card | not started | gated on GPU/API |
 | 10. Root README | not started | blocked on Project 1 certified results |
@@ -19,9 +19,11 @@
 Test command in this session (project `uv sync` is heavy and the sandbox uv cache is read-only):
 
 ```text
-<python> -m pytest -q  -> 21 passed
+<python> -m pytest -q  -> 24 passed
 <python> -m ruff check . -> clean
 ```
+
+In this session: `uv run --no-project --with pytest --with pyyaml python -m pytest -q` → 24 passed; `uv run --no-project --with ruff ruff check .` → clean.
 
 ## Real-data preparation (`scripts/prepare_data.py --max-seq-length 2048`)
 
@@ -48,6 +50,12 @@ The manifest at `data/processed/manifest.json` is gitignored; it records the rev
 - Near-dedupe is lexical: paraphrases and semantic duplicates still survive; the split is schema-disjoint, not contamination-proof.
 - Length filtering drops rows over 2,048 tokens (only 1 row here).
 - The test/val split is small (~509/510); per-slice variance will be wide.
+- `training/colab.ipynb` keeps `<your-repo-url>` until the repo has a public remote; fill it before the smoke test.
+
+## Task 3 decisions
+
+1. `resume_from_checkpoint("true")` maps to `True`; passing the string through would make `Trainer` look for a directory named `true`.
+2. `requirements-train.txt` adds `httpx` and `pyyaml`: the Colab flow runs `prepare_data.py` (httpx) and `train.py` (yaml) after installing only that file.
 
 ## Environment and gates
 

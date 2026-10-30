@@ -1,0 +1,9 @@
+unsloth
+trl>=0.16
+peft
+transformers
+datasets
+accelerate
+bitsandbytes
+httpx
+pyyaml

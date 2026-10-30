@@ -1,0 +1,10 @@
+model: Qwen/Qwen2.5-1.5B-Instruct
+max_seq_length: 2048
+epochs: 1
+learning_rate: 0.0002
+batch_size: 2
+grad_accum: 8
+lora_r: 16
+lora_alpha: 32
+seed: 42
+output_dir: outputs/qwen2.5-1.5b-lora
