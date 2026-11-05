@@ -1,6 +1,6 @@
 # Current project status
 
-Updated 2026-11-04. This page is the authoritative current status and completion plan. Project READMEs describe operation and limitations; dated plans, audits, ledgers, and debugging reports preserve historical decisions and evidence.
+Updated 2026-11-05. This page is the authoritative current status and completion plan. Project READMEs describe operation and limitations; dated plans, audits, ledgers, and debugging reports preserve historical decisions and evidence.
 
 ## Contributor verification
 
@@ -13,6 +13,8 @@ Routine checks require Python 3.12, uv 0.13.6, and the root lockfile dependencie
 **Local beta implemented:** the [application](../projects/01-rag-k8s-docs/README.md) accepts manifests/logs/events, UTF-8 text uploads with a combined 100,000-byte limit, optional Kubernetes version, and opt-in GitHub context. `/diagnose` returns validated observations, hypotheses, missing evidence, conflicts, read-only diagnostic suggestions, evidence references, tool trace, usage, and timing. `/ask` remains available. Nothing connects to clusters or executes commands.
 
 **Verified locally:** fake-provider end-to-end API tests, strict input/reference/command validation, bounded GitHub requests, caching/rate-limit/timeouts, real public GitHub snapshot capture, all three curated demos, desktop/mobile browser interaction, upload error handling, fake-provider rendering and recovery, wheel packaging, and deployment staging. The [walkthrough](media/troubleshooting-demo.webm) and [screenshot](media/troubleshooting-demo.png) show the real recorded-demo UI. A real-index server also verified startup/readiness with 12,084 chunks; live-diagnosis readiness is separately false without a provider. The earlier recorded-mode local release report is under `projects/01-rag-k8s-docs/evals/results/beta-local-release.json`; it honestly reports degraded live readiness because that smoke server intentionally had no index or provider credentials.
+
+**Interface polish verified:** restrained Hallmark polish retains the dark mint palette and two-column workflow, improves contrast and control states, and refreshes the desktop/mobile screenshots and walkthrough. The rendered audit has zero failures or warnings; browser checks cover loading/error recovery, uploads, keyboard focus, citation targets, and responsive layouts. See [design and validation details](UI_POLISH.md).
 
 **Evidence boundaries:** curated demos are authored examples, not generated model evaluations. GitHub snapshots retain real API source URLs and capture timestamps. New incident cases are synthetic drafts, not human-certified gold. Semantic metrics remain null until hash-bound manual review; schema validity and fake-provider results are not diagnosis accuracy. No base/adapter/hosted domain comparison has run, and adapter routing remains experimental.
 

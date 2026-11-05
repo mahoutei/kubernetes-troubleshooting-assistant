@@ -26,3 +26,6 @@ projects/*/evals/cache/
 
 # Intermediate browser recordings; final walkthrough is retained
 docs/media/raw/
+
+# Local Hallmark audit captures
+.hallmark/

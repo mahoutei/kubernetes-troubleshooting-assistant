@@ -24,9 +24,12 @@ def main():
             page.select_option("#demo", ident)
             page.click("#load-demo")
             page.wait_for_function("document.getElementById('status').textContent.startsWith('Showing recorded demo')")
-            page.locator("#result").get_by_text("RECORDED / AUTHORED EXAMPLE", exact=True).wait_for()
+            page.locator("#result").get_by_text("Recorded / authored example", exact=True).wait_for()
             if ident == "crashloop":
                 page.screenshot(path=str(output / "troubleshooting-demo.png"), full_page=True)
+                page.set_viewport_size({"width": 390, "height": 844})
+                page.screenshot(path=str(output / "troubleshooting-mobile.png"), full_page=True)
+                page.set_viewport_size({"width": 1440, "height": 1000})
             page.wait_for_timeout(1200)
         page.check("#github")
         page.click("#load-demo")
