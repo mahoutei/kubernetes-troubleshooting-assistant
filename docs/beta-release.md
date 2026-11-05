@@ -8,7 +8,7 @@ See the [application guide](../projects/01-rag-k8s-docs/README.md), [walkthrough
 
 ## Verified artifacts
 
-- Shared CPU workflow: 208 tests pass (23 tooling, 131 RAG, 54 fine-tuning); lint and notebook source parity pass.
+- Shared CPU workflow: 223 tests pass (38 tooling, 131 RAG, 54 fine-tuning); lint and notebook source parity pass.
 - Refreshed index: 12,084 chunks; 34 oversized chunks explicitly truncate. Chunker source and legacy vector reuse provenance are recorded.
 - Real-index hybrid offline `/ask`: 98 ms for the recorded verification request, with citations; this is not online diagnosis quality.
 - Real-index readiness, authored demos, wheel resources, browser desktop/mobile/upload behavior, and deployment dry-run pass.
@@ -46,7 +46,7 @@ The recording uses actual local recorded-demo endpoints, never mocked live-gener
 5. Inspect deployment staging using `scripts/deploy_space.sh <owner>/<space> --dry-run`. Configure the intended Space and server-side secrets before deployment. The deployment script force-pushes that named repository.
 6. Publish the actual hosted URL only after the hosted health and workflow checks pass. No hosted URL or real-provider quality claim is currently available.
 
-Docker, provider API keys, and a Hugging Face write token are absent from this development environment; those checks have not been performed. GPU adapter benchmarking also remains pending GPU/model availability.
+The Docker CLI is installed, but the current user receives permission denied on the engine socket. Provider API keys and a Hugging Face write token remain unavailable; full image, live-provider and deployment checks have not been performed. GPU adapter benchmarking also remains pending GPU/model availability.
 
 ## Representative limitations
 

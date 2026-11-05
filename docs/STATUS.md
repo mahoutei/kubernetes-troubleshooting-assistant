@@ -4,9 +4,13 @@ Updated 2026-11-05. This page is the authoritative current status and completion
 
 ## Contributor verification
 
-The shared CPU workflow passes 23 tooling tests, 131 RAG tests, and 54 fine-tuning tests. Lint passes for the tooling and both projects, and structural validation passes for all 60 RAG questions. Use the [root setup and commands](../README.md#contributor-checks) to reproduce these checks.
+The shared CPU workflow passes 38 tooling tests, 131 RAG tests, and 54 fine-tuning tests. Lint passes for the tooling and both projects, and structural validation passes for all 60 RAG questions. Use the [root setup and commands](../README.md#contributor-checks) to reproduce these checks.
 
 Routine checks require Python 3.12, uv 0.13.6, and the root lockfile dependencies. They do not require torch, transformers, sentence-transformers, Unsloth, model weights, credentials, CUDA, or prepared datasets. First-time dependency installation requires network access; checks then run locally. A Starlette/httpx TestClient deprecation warning remains; tests pass.
+
+## Applied ML delivery direction
+
+Enterprise AI for developer operations is the primary track. The next deliverable is a verified live flagship, followed by a client pilot comparing manual and assisted incident investigation. The offline [pilot worksheet and report CLI](CLIENT_PILOT.md) prepares development-only assignments and summarizes human-entered timing/reviews; it excludes fake/recorded assistant responses and does not establish productivity gains. No pilot has been run. See the [delivery roadmap](APPLIED_ML_ROADMAP.md).
 
 ## Kubernetes Troubleshooting Assistant
 
@@ -26,7 +30,7 @@ Routine checks require Python 3.12, uv 0.13.6, and the root lockfile dependencie
 
 1. Configure server-side provider credentials and exercise the three live incidents with `scripts/release_check.py --live`, followed by human semantic review.
 2. Review/certify the gold sets before held-out evaluation and report model quality with limitations.
-3. Build/run the full Docker image and verify startup/readiness and live incident behavior. Docker is not installed here. The served dependency graph now explicitly uses CPU PyTorch; the CUDA training environment remains independent.
+3. Build/run the full Docker image and verify startup/readiness and live incident behavior. The Docker CLI is installed, but the current user cannot access the engine socket; the full image and workflow remain unverified. The served dependency graph now explicitly uses CPU PyTorch; the CUDA training environment remains independent.
 4. Configure a Hugging Face write token and an intended Space repository, then deploy only after release checks. Neither is available here. There is no public deployed URL yet.
 
 The reproducible commands, API contract, benchmark instructions, representative limitations, and optional browser recorder are documented in the project README and `docs/beta-release.md`.

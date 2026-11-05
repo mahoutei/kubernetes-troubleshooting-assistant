@@ -1,6 +1,6 @@
 # Kubernetes Troubleshooting Assistant
 
-An applied LLM engineering portfolio with a usable incident-triage beta and a separate function-calling fine-tuning experiment.
+An applied ML application for Kubernetes teams investigating incidents, with a usable triage beta and a separate function-calling fine-tuning experiment.
 
 Paste or upload Pod manifests, logs, and events to inspect observed facts, ranked hypotheses, missing evidence, and suggested diagnostic checks. Answers reference supplied evidence and pinned Kubernetes documentation; optional read-only GitHub issue/release context is clearly distinguished. Commands are suggestions, never executed.
 
@@ -9,6 +9,8 @@ Paste or upload Pod manifests, logs, and events to inspect observed facts, ranke
 [Watch the short walkthrough](docs/media/troubleshooting-demo.webm) · [Mobile screenshot](docs/media/troubleshooting-mobile.png) · [Application/API guide](projects/01-rag-k8s-docs/README.md) · [Current status](docs/STATUS.md) · [Interface design and validation](docs/UI_POLISH.md)
 
 **Release status:** local beta. Three explicitly labeled curated demos work without model credentials. The UI has been exercised in a real browser. Real-provider incident validation, human-reviewed quality results, full Docker verification, and public hosting remain pending. No public deployment URL is claimed.
+
+The next milestone is a verified live release followed by a [manual-versus-assisted investigation pilot](docs/CLIENT_PILOT.md). Time savings and client outcomes have not yet been measured. See the [Applied ML delivery route](docs/APPLIED_ML_ROADMAP.md).
 
 ## Run the application
 
