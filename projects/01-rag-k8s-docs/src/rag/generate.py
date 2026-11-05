@@ -109,7 +109,7 @@ class LLMClient:
     def _openai_client(endpoint: Endpoint):
         from openai import OpenAI
 
-        return OpenAI(base_url=endpoint.base_url, api_key=endpoint.api_key)
+        return OpenAI(base_url=endpoint.base_url, api_key=endpoint.api_key, timeout=30.0, max_retries=0)
 
     def _client(self, endpoint: Endpoint):
         if endpoint.provider not in self._clients:
@@ -129,17 +129,19 @@ class LLMClient:
                     temperature=0.0,
                     max_tokens=max_tokens,
                 )
-            except Exception as exc:  # noqa: BLE001 - outage, retired model, rate limit, bad key
+                text = response.choices[0].message.content
+                if not isinstance(text, str) or not text.strip():
+                    raise ValueError("provider returned an empty answer")
+                usage = response.usage
+                return text.strip(), Usage(
+                    provider=endpoint.provider,
+                    model=endpoint.model,
+                    prompt_tokens=usage.prompt_tokens if usage else 0,
+                    completion_tokens=usage.completion_tokens if usage else 0,
+                )
+            except Exception as exc:  # noqa: BLE001 - provider outage or malformed response
                 errors.append(f"{endpoint.provider}/{endpoint.model}: {exc}")
                 continue
-            text = response.choices[0].message.content or ""
-            usage = response.usage
-            return text.strip(), Usage(
-                provider=endpoint.provider,
-                model=endpoint.model,
-                prompt_tokens=usage.prompt_tokens if usage else 0,
-                completion_tokens=usage.completion_tokens if usage else 0,
-            )
         raise LLMError("all LLM providers failed: " + "; ".join(errors))
 
 

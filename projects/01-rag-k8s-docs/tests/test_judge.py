@@ -55,3 +55,11 @@ def test_parse_rejects_out_of_range_values():
         assert "correct" in str(exc)
     else:
         raise AssertionError("expected ValueError")
+
+
+def test_changing_judge_model_or_provider_does_not_reuse_scores(tmp_path):
+    clients = [FakeLLM([VALID]) for _ in range(3)]
+    for client, provider, model in zip(clients, ["a", "a", "b"], ["one", "two", "two"], strict=True):
+        Judge(client, tmp_path, provider=provider, model=model).score("q", "a", "r", "c")
+    assert [client.calls for client in clients] == [1, 1, 1]
+    assert len(list(tmp_path.glob("*.json"))) == 3

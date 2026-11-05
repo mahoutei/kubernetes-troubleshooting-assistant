@@ -2,13 +2,16 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import random
 import re
-from dataclasses import dataclass
+from collections import Counter
+from dataclasses import dataclass, field
 from pathlib import Path
 
 DATASET_REPO = "NousResearch/hermes-function-calling-v1"
 DATASET_REVISION = "dae3e1d28cfbcf4b915c04ea1e072030529b4bda"
+PREPROCESSING_VERSION = 2
 DATASET_FILES = {
     "func-calling-singleturn.json": {
         "rows": 1_893,
@@ -49,6 +52,7 @@ class Example:
     user: str
     calls: list[dict]
     source: str
+    history: list[dict[str, str]] = field(default_factory=list)
 
 
 def extract_tagged_json(text: str, tag: str) -> list:
@@ -122,10 +126,13 @@ def parse_hermes_row(row: dict, source: str) -> Example | None:
     # often start with a clarification question before the tool call.
     user = None
     calls = None
+    history: list[dict[str, str]] = []
     for message in conversations:
         role = message.get("from")
         if role == "human":
             user = message.get("value")
+            if isinstance(user, str) and user.strip():
+                history.append({"role": "user", "content": user})
         elif role == "gpt" and user:
             candidate = [
                 {"name": call["name"], "arguments": call["arguments"]}
@@ -135,9 +142,11 @@ def parse_hermes_row(row: dict, source: str) -> Example | None:
             if candidate:
                 calls = candidate
                 break
+            if isinstance(message.get("value"), str) and message["value"].strip():
+                history.append({"role": "assistant", "content": message["value"]})
     if not user or not calls:
         return None
-    return Example(str(row.get("id", "")), tool_list, user, calls, source)
+    return Example(str(row.get("id", "")), tool_list, user, calls, source, history[:-1])
 
 
 def load_examples(paths: list[Path]) -> list[Example]:
@@ -154,7 +163,7 @@ def load_examples(paths: list[Path]) -> list[Example]:
 
 def _example_key(example: Example) -> str:
     payload = json.dumps(
-        {"tools": example.tools, "user": example.user, "calls": example.calls},
+        {"tools": example.tools, "history": example.history, "user": example.user, "calls": example.calls},
         sort_keys=True,
         ensure_ascii=False,
     )
@@ -196,6 +205,7 @@ def dedupe_near(examples: list[Example]) -> list[Example]:
                 {
                     "schema": schema_hash(example.tools),
                     "user": _normalize_prompt(example.user),
+                    "history": [(m["role"], _normalize_prompt(m["content"])) for m in example.history],
                     "calls": _calls_key(example.calls),
                 },
                 sort_keys=True,
@@ -251,6 +261,10 @@ def assert_split_integrity(examples: list[Example], splits: dict[str, list[Examp
         raise ValueError(f"each split must be non-empty: {counts}")
     if sum(counts.values()) != len(examples):
         raise ValueError(f"split counts {counts} do not cover {len(examples)} examples")
+    if Counter(_example_key(e) for e in examples) != Counter(
+        _example_key(e) for items in splits.values() for e in items
+    ):
+        raise ValueError("splits do not contain exactly the original examples")
     leaks = find_schema_leaks(splits)
     if leaks:
         digest, names = next(iter(leaks.items()))
@@ -263,7 +277,7 @@ def split_examples(
     seed: int = 42,
     ratios: tuple[float, float, float] = (0.8, 0.1, 0.1),
 ) -> dict[str, list[Example]]:
-    if abs(sum(ratios) - 1.0) > 1e-9:
+    if len(ratios) != 3 or any(not math.isfinite(r) or r <= 0 for r in ratios) or abs(sum(ratios) - 1.0) > 1e-9:
         raise ValueError("ratios must sum to 1")
     if not examples:
         raise ValueError("no examples to split")

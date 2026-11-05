@@ -1,0 +1,36 @@
+{
+  "evidence_status": "real index and hybrid CPU retrieval with offline extractive generation; not online model quality",
+  "health": {
+    "status": "ok",
+    "chunks": 12084,
+    "error": null,
+    "live_diagnosis_ready": false,
+    "recorded_demos_ready": true,
+    "retrieval_mode": "hybrid"
+  },
+  "response": {
+    "answer": "_A Pod is a group of one or more application containers (such as Docker) and includes\nshared storage (volumes), IP address and information about how to run them._\n\nWhen you created a Deployment in [Module 2](/docs/tutorials/kubernetes-basics/deploy-app/deploy-intro/),\nKubernetes created a **Pod** to host your application instance. A Pod is a Kubernetes\nabstraction that represents a group of one or more application containers (such as Docker),\nand some shared resources for those containers. [2]",
+    "citations": [
+      {
+        "id": 2,
+        "url": "https://kubernetes.io/docs/tutorials/kubernetes-basics/explore/explore-intro/#kubernetes-pods",
+        "heading": "Kubernetes Pods",
+        "chunk_id": "8eee88861c657123"
+      }
+    ],
+    "retrieval": {
+      "chunks_used": 5,
+      "top_chunk_id": "883e6772bba37aa7",
+      "dense_ms": 73,
+      "bm25_ms": 24,
+      "rerank_ms": 0
+    },
+    "usage": {
+      "provider": "offline",
+      "model": "extractive",
+      "prompt_tokens": 0,
+      "completion_tokens": 0
+    },
+    "latency_ms": 98
+  }
+}

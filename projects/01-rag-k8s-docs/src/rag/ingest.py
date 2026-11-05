@@ -14,7 +14,7 @@ EXCLUDE_PREFIXES = ("reference/generated/",)
 
 def _is_safe_member(name: str, dest: Path) -> bool:
     target = (dest / name).resolve()
-    return str(target).startswith(str(dest.resolve()) + "/")
+    return target.is_relative_to(dest.resolve())
 
 
 def extract_tarball(archive: Path, dest: Path) -> Path:

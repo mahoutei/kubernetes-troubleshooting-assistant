@@ -6,3 +6,8 @@
 - `rank_bm25`: MIT
 - FastAPI: MIT
 - Fusion and evaluation ideas were informed by `Raudaschl/rag-fusion` (MIT), `kvsdileep/rag-for-engineers` (no license, read-only reference), and `Vikas9892/rag_evaluation` (no license, read-only reference). No code was copied from the unlicensed repositories.
+
+
+## Public API demonstration snapshots
+
+`src/rag/resources/github_recordings.json` contains recorded public GitHub REST responses from `kubernetes/kubernetes`, with capture timestamps and source URLs. Issue text is third-party content and is used as contextual demonstration evidence, not authoritative documentation or a verified root cause. Curated incident responses are authored examples and are labeled as such; they are not claims about actual production incidents.

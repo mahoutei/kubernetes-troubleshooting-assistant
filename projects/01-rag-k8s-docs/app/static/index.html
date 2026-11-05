@@ -1,57 +1,58 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Kubernetes Docs RAG</title>
-  <style>
-    body { font-family: system-ui, sans-serif; max-width: 760px; margin: 3rem auto; padding: 0 1rem; }
-    form { display: flex; gap: .5rem; }
-    input { flex: 1; padding: .7rem; font-size: 1rem; }
-    button { padding: .7rem 1rem; font-size: 1rem; cursor: pointer; }
-    #answer { white-space: pre-wrap; margin-top: 1.5rem; line-height: 1.5; }
-    #sources li { margin: .4rem 0; }
-    .muted { color: #666; font-size: .9rem; }
-  </style>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Kubernetes Troubleshooting Assistant</title>
+<style>
+:root{color-scheme:dark;--bg:#10151b;--panel:#18212a;--line:#33404e;--ink:#edf2f6;--muted:#aebdcb;--accent:#82e4c4}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.6 system-ui,sans-serif}main{max-width:1240px;margin:auto;padding:32px 24px 60px}header{border-bottom:1px solid var(--line);padding-bottom:24px;margin-bottom:24px}.eyebrow{letter-spacing:.16em;text-transform:uppercase;color:var(--accent);font-size:12px}h1{font-size:clamp(26px,4vw,42px);letter-spacing:-.035em;line-height:1.15;margin:12px 0}h2{font-size:20px}h3{font-size:16px;margin:24px 0 10px}p{max-width:75ch}.muted{color:var(--muted)}.layout{display:grid;grid-template-columns:minmax(320px,1fr) minmax(320px,1.2fr);gap:24px}.panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:24px}.row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}label{display:block;margin-top:16px}textarea,input[type=text],select{background:#10171f;color:var(--ink);border:1px solid #536577;border-radius:6px;padding:10px;width:100%;font:inherit}textarea{height:138px;resize:vertical;font:13px/1.5 ui-monospace,monospace}button{padding:11px 16px;border:0;border-radius:6px;background:var(--accent);color:#10231d;font:600 14px system-ui;cursor:pointer}button.secondary{background:#2e3c4b;color:var(--ink)}button:disabled{opacity:.5;cursor:wait}a{color:var(--accent)}input[type=file]{display:block;width:100%;font-size:12px;margin-top:6px}input[type=checkbox]{accent-color:var(--accent)}.tag{display:inline-block;padding:3px 9px;border-radius:99px;border:1px solid #537566;font-size:12px;color:var(--accent)}.notice{border-left:3px solid #edbc6e;padding:10px 14px;background:#302a20;margin:14px 0}.error{color:#ffb1ab}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#0e151b;padding:12px;border-radius:5px;font:12px/1.6 ui-monospace,monospace}.item{border-bottom:1px solid var(--line);padding:10px 0}details{margin:12px 0}summary{cursor:pointer}small{color:var(--muted)}#status{min-height:24px;margin-top:12px}#result:empty:after{content:"Your diagnosis will appear here. Start with a recorded example to explore the workflow without credentials.";color:var(--muted)}:focus-visible{outline:3px solid #a8ccff;outline-offset:3px}@media(max-width:800px){.layout{grid-template-columns:1fr}.panel{padding:18px}}
+</style>
 </head>
-<body>
-  <h1>Kubernetes Docs RAG</h1>
-  <p class="muted">Answers are grounded in pinned Kubernetes documentation and cite their sources.</p>
-  <form id="form">
-    <input id="question" placeholder="How does a PodDisruptionBudget work?" required minlength="3" maxlength="500" />
-    <button type="submit">Ask</button>
-  </form>
-  <div id="answer"></div>
-  <ol id="sources"></ol>
-  <script>
-    const form = document.getElementById("form");
-    form.addEventListener("submit", async (event) => {
-      event.preventDefault();
-      const question = document.getElementById("question").value;
-      const answerEl = document.getElementById("answer");
-      const sourcesEl = document.getElementById("sources");
-      answerEl.textContent = "Thinking...";
-      sourcesEl.innerHTML = "";
-      const response = await fetch("/ask", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question }),
-      });
-      if (!response.ok) {
-        answerEl.textContent = `Error ${response.status}: ${await response.text()}`;
-        return;
-      }
-      const data = await response.json();
-      answerEl.textContent = data.answer;
-      for (const citation of data.citations) {
-        const li = document.createElement("li");
-        const link = document.createElement("a");
-        link.href = citation.url;
-        link.textContent = citation.heading || citation.url;
-        li.appendChild(link);
-        sourcesEl.appendChild(li);
-      }
-    });
-  </script>
-</body>
-</html>
+<body><main>
+<header><div class="eyebrow">Applied AI · beta</div><h1>Kubernetes Troubleshooting Assistant</h1><p class="muted">From symptoms to the next diagnostic step. Inspect supplied evidence, explore ranked hypotheses, and follow the sources. Commands are suggestions—nothing connects to your cluster or executes them.</p><span class="tag">Read-only workflow</span> <span class="tag">Evidence-linked results</span></header>
+<div class="layout">
+<section class="panel" aria-labelledby="input-title"><h2 id="input-title">1. Describe the incident</h2>
+<label for="demo">Try a complete recorded example</label><div class="row"><select id="demo"><option value="">Choose an incident…</option></select><button id="load-demo" type="button" class="secondary">View recorded demo</button></div>
+<small>Demos are authored examples, not live model responses. Optional GitHub evidence comes from recorded public API snapshots.</small>
+<form id="incident-form">
+<label for="manifest">Pod manifest</label><textarea id="manifest" placeholder="apiVersion: v1&#10;kind: Pod…"></textarea><input type="file" id="manifest-file" accept=".yaml,.yml,.txt,.json" aria-label="Upload manifest">
+<label for="logs">Container logs</label><textarea id="logs" placeholder="Paste recent container output…"></textarea><input type="file" id="logs-file" accept=".log,.txt" aria-label="Upload logs">
+<label for="events">Pod events and status</label><textarea id="events" placeholder="Warning BackOff / FailedScheduling…"></textarea><input type="file" id="events-file" accept=".log,.txt,.json" aria-label="Upload events">
+<div class="row"><div style="flex:1"><label for="version">Kubernetes version (optional)</label><input type="text" id="version" placeholder="1.34.0" pattern="v?1\.[0-9]{1,2}(\.[0-9]{1,2})?"></div><label><input id="github" type="checkbox"> Include GitHub context</label></div>
+<p><small>Maximum 100,000 UTF-8 bytes in total. Upload text only. Remove secrets before submitting; a configured hosted model receives the evidence. GitHub receives only a generic failure category, never your pasted content.</small></p>
+<button id="diagnose" type="submit">Run live diagnosis</button><div id="status" role="status" aria-live="polite"></div>
+</form></section>
+<section class="panel" aria-labelledby="output-title"><h2 id="output-title">2. Inspect the evidence</h2><div id="result" aria-live="polite"></div></section>
+</div>
+<details class="panel" style="margin-top:24px"><summary>Documentation question answering</summary><form id="ask-form"><label for="question">Ask about Kubernetes</label><div class="row"><input type="text" id="question" minlength="3" maxlength="500" required placeholder="How does a PodDisruptionBudget work?"><button type="submit">Ask</button></div></form><div id="answer"></div></details>
+<footer class="muted"><p>Beta: diagnoses require review. Documentation may describe a different Kubernetes version. A matching GitHub report does not establish your root cause.</p></footer>
+</main>
+<script>
+const $ = id => document.getElementById(id);
+const fields = ['manifest','logs','events'];
+const limit = 100000;
+function element(tag,text,cls){const el=document.createElement(tag);if(text!==undefined)el.textContent=text;if(cls)el.className=cls;return el;}
+function evidenceBytes(){return fields.reduce((sum,id)=>sum+new TextEncoder().encode($(id).value).length,0);}
+async function request(url,options){const response=await fetch(url,options);if(!response.ok){const body=await response.json().catch(()=>({}));throw new Error(typeof body.detail==='string'?body.detail:JSON.stringify(body.detail||`Request failed (${response.status})`));}return response.json();}
+function safeLink(url){try{const parsed=new URL(url);return parsed.protocol==='https:'&&['kubernetes.io','github.com'].includes(parsed.hostname);}catch{return false;}}
+function render(payload){
+ const out=$('result');out.replaceChildren();
+ out.append(element('span',payload.mode==='recorded_demo'?'RECORDED / AUTHORED EXAMPLE':'LIVE GENERATION','tag'));
+ for(const warning of payload.warnings)out.append(element('div',warning,'notice'));
+ const used=new Set(payload.evidence.map(e=>e.id));
+ function claims(title,items){out.append(element('h3',title));if(!items.length){out.append(element('p','None identified from the supplied evidence.','muted'));return;}for(const item of items){const row=element('div',undefined,'item');row.append(element('p',item.text));if(item.command)row.append(element('pre',item.command));for(const id of item.evidence_ids){if(used.has(id)){const link=element('a',`[${id}] `);link.href=`#evidence-${id}`;row.append(link);}}out.append(row);}}
+ claims('Observed facts',payload.diagnosis.observations);
+ claims('Ranked hypotheses — require verification',payload.diagnosis.hypotheses);
+ out.append(element('h3','Missing evidence'));const missing=element('ul');for(const item of payload.diagnosis.missing_evidence)missing.append(element('li',item));out.append(missing);
+ claims('Conflicting observations',payload.diagnosis.conflicts);
+ claims('Next diagnostic steps — suggestions only',payload.diagnosis.next_steps);
+ out.append(element('h3','Evidence library'));
+ for(const item of payload.evidence){const details=element('details');details.id=`evidence-${item.id}`;details.append(element('summary',`${item.id} · ${item.kind} · ${item.origin} · ${item.title}`));if(item.version)details.append(element('small',`Documentation version: ${item.version}`));if(item.url&&safeLink(item.url)){const link=element('a','Open source');link.href=item.url;link.target='_blank';link.rel='noopener noreferrer';details.append(link);}details.append(element('pre',item.text));out.append(details);}
+ const trace=element('details');trace.append(element('summary','Tool trace, model usage, and timing'));trace.append(element('pre',JSON.stringify({tools:payload.tool_trace,usage:payload.usage,latency_ms:payload.latency_ms},null,2)));out.append(trace);
+}
+for(const id of fields){$(id+'-file').addEventListener('change',async event=>{try{const file=event.target.files[0];if(!file)return;if(file.size>limit)throw new Error('File exceeds 100 KB');const text=new TextDecoder('utf-8',{fatal:true}).decode(await file.arrayBuffer());if(text.includes('\0'))throw new Error('Binary files are unsupported');const previous=$(id).value;$(id).value=text;if(evidenceBytes()>limit){$(id).value=previous;throw new Error('Combined evidence exceeds 100,000 bytes');}$('status').textContent='Text uploaded.';}catch(error){$('status').textContent=error.message;}finally{event.target.value='';}});}
+$('incident-form').addEventListener('submit',async event=>{event.preventDefault();const button=$('diagnose');try{if(evidenceBytes()>limit)throw new Error('Combined evidence exceeds 100,000 UTF-8 bytes');if(!fields.some(id=>$(id).value.trim()))throw new Error('Provide at least one evidence field');button.disabled=true;$('status').textContent='Retrieving evidence and generating diagnosis…';const body=Object.fromEntries(fields.map(id=>[id,$(id).value]));body.kubernetes_version=$('version').value.trim()||null;body.github_lookup=$('github').checked;render(await request('/diagnose',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}));$('status').textContent='Diagnosis returned; review the evidence and limitations.';}catch(error){$('status').textContent=error.message;}finally{button.disabled=false;}});
+let demos=[];
+request('/demos').then(items=>{demos=items;for(const demo of items){const option=element('option',demo.title);option.value=demo.id;$('demo').append(option);}}).catch(error=>{$('status').textContent=error.message;});
+$('load-demo').addEventListener('click',async()=>{const button=$('load-demo');try{const demo=demos.find(d=>d.id===$('demo').value);if(!demo)throw new Error('Choose a demo first');button.disabled=true;for(const id of fields)$(id).value=demo.request[id];$('version').value=demo.request.kubernetes_version||'';render(await request(`/demos/${demo.id}?github_lookup=${$('github').checked}`));$('status').textContent='Showing recorded demo. Run live diagnosis to analyze these inputs with a configured model.';}catch(error){$('status').textContent=error.message;}finally{button.disabled=false;}});
+$('ask-form').addEventListener('submit',async event=>{event.preventDefault();const button=event.target.querySelector('button');button.disabled=true;try{const data=await request('/ask',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({question:$('question').value})});$('answer').replaceChildren(element('p',data.answer));for(const citation of data.citations){if(safeLink(citation.url)){const link=element('a',`[${citation.id}] ${citation.heading} `);link.href=citation.url;$('answer').append(link);}}}catch(error){$('answer').textContent=error.message;}finally{button.disabled=false;}});
+</script></body></html>

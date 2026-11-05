@@ -1,0 +1,29 @@
+{
+  "evidence_status": "real refreshed retrieval with offline extractive answer; not online generation quality",
+  "response": {
+    "answer": "A Kubernetes [*Pod*](/docs/concepts/workloads/pods/) is a group of one or more Containers,\ntied together for the purposes of administration and networking. The Pod in this\ntutorial has only one Container. [1]",
+    "citations": [
+      {
+        "id": 1,
+        "url": "https://kubernetes.io/docs/tutorials/hello-minikube/#create-a-deployment",
+        "heading": "Create a Deployment",
+        "chunk_id": "29928b3bb9afc15f"
+      }
+    ],
+    "retrieval": {
+      "chunks_used": 5,
+      "top_chunk_id": "29928b3bb9afc15f",
+      "dense_ms": 96,
+      "bm25_ms": 35,
+      "rerank_ms": 26805
+    },
+    "usage": {
+      "provider": "offline",
+      "model": "extractive",
+      "prompt_tokens": 0,
+      "completion_tokens": 0
+    },
+    "latency_ms": 26940
+  },
+  "live_diagnosis_without_provider": 503
+}

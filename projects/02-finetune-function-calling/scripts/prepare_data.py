@@ -14,6 +14,7 @@ from src.data import (
     DATASET_FILES,
     DATASET_REPO,
     DATASET_REVISION,
+    PREPROCESSING_VERSION,
     assert_split_integrity,
     dataset_url,
     load_examples,
@@ -52,6 +53,7 @@ def verify(path: Path, filename: str) -> dict:
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--max-seq-length", type=int, default=2048)
+    parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--model", default="Qwen/Qwen2.5-1.5B-Instruct")
     args = parser.parse_args()
 
@@ -64,7 +66,7 @@ def main() -> None:
     examples = load_examples(files)
     if not examples:
         raise ValueError("no examples parsed; refusing to write an empty dataset")
-    splits = split_examples(examples)
+    splits = split_examples(examples, seed=args.seed)
     split_counts = assert_split_integrity(examples, splits)
 
     tokenizer = AutoTokenizer.from_pretrained(args.model)
@@ -73,7 +75,7 @@ def main() -> None:
         kept = [
             example
             for example in items
-            if len(tokenizer(render_example(example, tokenizer))["input_ids"]) <= args.max_seq_length
+            if len(tokenizer(render_example(example, tokenizer), add_special_tokens=False)["input_ids"]) <= args.max_seq_length
         ]
         if not kept:
             raise ValueError(f"{name} split is empty after length filtering; raise --max-seq-length")
@@ -86,9 +88,11 @@ def main() -> None:
         skipped_or_duplicate=raw_rows - len(examples),
         split_counts=split_counts,
         length_filtered=kept_counts,
-        seed=42,
+        seed=args.seed,
         ratios=[0.8, 0.1, 0.1],
         max_seq_length=args.max_seq_length,
+        preprocessing_version=PREPROCESSING_VERSION,
+        tokenizer_model=args.model,
     )
     (PROCESSED / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
     print(json.dumps({"raw_rows": raw_rows, "parsed": len(examples), "split": split_counts, "kept": kept_counts}, indent=2))

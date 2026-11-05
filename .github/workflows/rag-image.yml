@@ -1,0 +1,52 @@
+name: rag-image-release-check
+
+on:
+  workflow_dispatch:
+    inputs:
+      corpus_limit:
+        description: "20 for image smoke verification; 0 for full corpus build (slower)"
+        required: true
+        default: "20"
+        type: choice
+        options: ["20", "0"]
+
+jobs:
+  docker-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build CPU runtime image
+        env:
+          CORPUS_LIMIT: ${{ inputs.corpus_limit }}
+        run: docker build --build-arg INDEX_FILE_LIMIT="$CORPUS_LIMIT" -t k8s-troubleshooting:check projects/01-rag-k8s-docs
+      - name: Start offline image
+        run: docker run -d --name troubleshooting -p 8000:7860 -e RAG_OFFLINE=1 k8s-troubleshooting:check
+      - name: Verify real index readiness and recorded demos
+        run: |
+          python - <<'PYTHON'
+          import json
+          import time
+          import urllib.request
+          def get(path):
+              with urllib.request.urlopen("http://127.0.0.1:8000" + path, timeout=10) as response:
+                  return json.load(response)
+          for attempt in range(90):
+              try:
+                  health = get("/health")
+                  if health["status"] == "ok" and health["chunks"] > 0:
+                      break
+              except (OSError, ValueError):
+                  pass
+              time.sleep(2)
+          else:
+              raise SystemExit("Image never became ready with a real index")
+          demos = get("/demos")
+          assert len(demos) == 3
+          for demo in demos:
+              assert get("/demos/" + demo["id"])["mode"] == "recorded_demo"
+          print("Image/index readiness and recorded demos passed; online model evaluation is separate")
+          PYTHON
+      - name: Container logs
+        if: always()
+        run: docker logs troubleshooting

@@ -23,3 +23,6 @@ projects/*/evals/cache/
 
 # OS
 .DS_Store
+
+# Intermediate browser recordings; final walkthrough is retained
+docs/media/raw/

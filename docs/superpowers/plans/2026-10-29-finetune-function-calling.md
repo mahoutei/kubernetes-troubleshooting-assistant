@@ -1,5 +1,8 @@
 # Function-Calling LoRA — Implementation Plan
 
+> **Historical record:** this document preserves earlier plans, decisions, or observations. See [current status and next milestones](../../STATUS.md) for the maintained project status.
+
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Fine-tune Qwen2.5-1.5B-Instruct with LoRA to emit reliable tool calls, then quantify base vs tuned vs prompted free-tier API model (`openai/gpt-oss-120b`) quality, latency, and cost per 1k calls.

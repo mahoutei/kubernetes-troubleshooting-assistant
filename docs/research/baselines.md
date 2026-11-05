@@ -1,5 +1,8 @@
 # Baseline teardown — RAG and function-calling projects
 
+> **Historical record:** this document preserves earlier plans, decisions, or observations. See [current status and next milestones](../STATUS.md) for the maintained project status.
+
+
 Date: 2026-10-29
 Purpose: pick proven patterns, avoid reinventing them, and keep licensing clean. These repos are references, not dependencies. No code is copied from unlicensed repositories; adapted code gets an entry in the project's `ATTRIBUTIONS.md`.
 

@@ -1,5 +1,8 @@
 # RAG plan audit — plan-vs-code drift and verified defects
 
+> **Historical record:** this document preserves earlier plans, decisions, or observations. See [current status and next milestones](../STATUS.md) for the maintained project status.
+
+
 - **Plan audited:** `docs/superpowers/plans/2026-10-29-rag-k8s-docs.md` (pre-reconciliation revision, committed at `6440aee`; line numbers below refer to that file version)
 - **Implemented branch:** `feat/rag-eval`
 - **Code baseline:** `ce0248b` (`feat(rag): add judge, eval runner, calibration, and ablation harness`) plus the inherited Tasks 1–8 code from `6440aee`, plus post-`ce0248b` commits `d209300` (certificate-test independence) and `93b4297` (batch embeddings + index-build phase logging), plus the final (uncommitted) change to `evals/run_eval.py` + `tests/test_eval_runner.py` that omits retrieval metrics from the unanswerable slice (they are undefined without gold sources)

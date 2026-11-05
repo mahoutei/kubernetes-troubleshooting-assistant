@@ -1,0 +1,25 @@
+{
+  "health": {
+    "status": "ok",
+    "chunks": 12084,
+    "error": null,
+    "live_diagnosis_ready": false,
+    "recorded_demos_ready": true
+  },
+  "demos": [
+    {
+      "id": "crashloop",
+      "recorded_demo": "passed"
+    },
+    {
+      "id": "imagepull",
+      "recorded_demo": "passed"
+    },
+    {
+      "id": "pending",
+      "recorded_demo": "passed"
+    }
+  ],
+  "live_provider_check": false,
+  "semantic_review": "pending human review"
+}

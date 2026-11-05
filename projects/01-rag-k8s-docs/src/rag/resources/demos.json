@@ -1,0 +1,311 @@
+[
+  {
+    "id": "crashloop",
+    "title": "Application exits during startup",
+    "topic": "CrashLoopBackOff",
+    "request": {
+      "manifest": "apiVersion: v1\nkind: Pod\nmetadata:\n  name: checkout\nspec:\n  containers:\n  - name: app\n    image: example/checkout:v1\n",
+      "logs": "ERROR: required DATABASE_URL is unset; exiting with code 1",
+      "events": "Warning BackOff: Back-off restarting failed container app; state CrashLoopBackOff",
+      "kubernetes_version": "1.34.0",
+      "github_lookup": false
+    },
+    "response": {
+      "diagnosis": {
+        "observations": [
+          {
+            "text": "The app reports an unset DATABASE_URL and exits with code 1.",
+            "evidence_ids": [
+              "input-logs"
+            ]
+          }
+        ],
+        "hypotheses": [
+          {
+            "text": "A required application configuration value may be missing; CrashLoopBackOff describes repeated failures, not the root cause.",
+            "evidence_ids": [
+              "input-events",
+              "input-logs",
+              "doc-1"
+            ]
+          }
+        ],
+        "missing_evidence": [
+          "Confirm how DATABASE_URL is supplied without sharing secret values."
+        ],
+        "conflicts": [],
+        "next_steps": [
+          {
+            "text": "Collect additional read-only diagnostic evidence and compare it with the observed events.",
+            "evidence_ids": [
+              "input-events",
+              "doc-1"
+            ],
+            "command": "kubectl logs checkout -c app --previous"
+          }
+        ]
+      },
+      "evidence": [
+        {
+          "id": "input-manifest",
+          "kind": "user",
+          "title": "Example manifest",
+          "text": "apiVersion: v1\nkind: Pod\nmetadata:\n  name: checkout\nspec:\n  containers:\n  - name: app\n    image: example/checkout:v1\n",
+          "url": null,
+          "version": null,
+          "origin": "recorded_example"
+        },
+        {
+          "id": "input-logs",
+          "kind": "user",
+          "title": "Example logs",
+          "text": "ERROR: required DATABASE_URL is unset; exiting with code 1",
+          "url": null,
+          "version": null,
+          "origin": "recorded_example"
+        },
+        {
+          "id": "input-events",
+          "kind": "user",
+          "title": "Example events",
+          "text": "Warning BackOff: Back-off restarting failed container app; state CrashLoopBackOff",
+          "url": null,
+          "version": null,
+          "origin": "recorded_example"
+        },
+        {
+          "id": "doc-1",
+          "kind": "documentation",
+          "title": "Curated summary: Kubernetes Pod troubleshooting",
+          "text": "Inspect Pod status and recent events first. Use container logs to investigate repeated startup failures; a Pending Pod requires scheduling investigation. This is an authored demonstration summary, not a verbatim retrieved excerpt.",
+          "url": "https://kubernetes.io/docs/tasks/debug/debug-application/debug-pods/",
+          "version": "release-1.34",
+          "origin": "recorded_example"
+        }
+      ],
+      "warnings": [
+        "Curated recorded demonstration; not live model generation or proof of a fix."
+      ],
+      "tool_trace": [
+        {
+          "tool": "recorded_demo",
+          "status": "curated_example"
+        }
+      ],
+      "usage": {
+        "provider": "none",
+        "model": "authored-demo",
+        "prompt_tokens": 0,
+        "completion_tokens": 0
+      },
+      "latency_ms": 0,
+      "mode": "recorded_demo"
+    }
+  },
+  {
+    "id": "imagepull",
+    "title": "Container image cannot be pulled",
+    "topic": "ImagePullBackOff",
+    "request": {
+      "manifest": "apiVersion: v1\nkind: Pod\nmetadata:\n  name: catalog\nspec:\n  containers:\n  - name: app\n    image: example.invalid/catalog:missing\n",
+      "logs": "No application logs: container has not started.",
+      "events": "Warning Failed: failed to resolve image example.invalid/catalog:missing: manifest unknown\nWarning BackOff: ImagePullBackOff",
+      "kubernetes_version": "1.34.0",
+      "github_lookup": false
+    },
+    "response": {
+      "diagnosis": {
+        "observations": [
+          {
+            "text": "Events report manifest unknown while resolving the specified image.",
+            "evidence_ids": [
+              "input-events"
+            ]
+          }
+        ],
+        "hypotheses": [
+          {
+            "text": "The image reference or tag may not exist; verify it before investigating application startup.",
+            "evidence_ids": [
+              "input-events",
+              "input-logs",
+              "doc-1"
+            ]
+          }
+        ],
+        "missing_evidence": [
+          "Confirm the intended image repository/tag and whether registry authentication is required."
+        ],
+        "conflicts": [],
+        "next_steps": [
+          {
+            "text": "Collect additional read-only diagnostic evidence and compare it with the observed events.",
+            "evidence_ids": [
+              "input-events",
+              "doc-1"
+            ],
+            "command": "kubectl describe pod catalog"
+          }
+        ]
+      },
+      "evidence": [
+        {
+          "id": "input-manifest",
+          "kind": "user",
+          "title": "Example manifest",
+          "text": "apiVersion: v1\nkind: Pod\nmetadata:\n  name: catalog\nspec:\n  containers:\n  - name: app\n    image: example.invalid/catalog:missing\n",
+          "url": null,
+          "version": null,
+          "origin": "recorded_example"
+        },
+        {
+          "id": "input-logs",
+          "kind": "user",
+          "title": "Example logs",
+          "text": "No application logs: container has not started.",
+          "url": null,
+          "version": null,
+          "origin": "recorded_example"
+        },
+        {
+          "id": "input-events",
+          "kind": "user",
+          "title": "Example events",
+          "text": "Warning Failed: failed to resolve image example.invalid/catalog:missing: manifest unknown\nWarning BackOff: ImagePullBackOff",
+          "url": null,
+          "version": null,
+          "origin": "recorded_example"
+        },
+        {
+          "id": "doc-1",
+          "kind": "documentation",
+          "title": "Curated summary: Kubernetes Pod troubleshooting",
+          "text": "Inspect Pod status and recent events first. Use container logs to investigate repeated startup failures; a Pending Pod requires scheduling investigation. This is an authored demonstration summary, not a verbatim retrieved excerpt.",
+          "url": "https://kubernetes.io/docs/tasks/debug/debug-application/debug-pods/",
+          "version": "release-1.34",
+          "origin": "recorded_example"
+        }
+      ],
+      "warnings": [
+        "Curated recorded demonstration; not live model generation or proof of a fix."
+      ],
+      "tool_trace": [
+        {
+          "tool": "recorded_demo",
+          "status": "curated_example"
+        }
+      ],
+      "usage": {
+        "provider": "none",
+        "model": "authored-demo",
+        "prompt_tokens": 0,
+        "completion_tokens": 0
+      },
+      "latency_ms": 0,
+      "mode": "recorded_demo"
+    }
+  },
+  {
+    "id": "pending",
+    "title": "Pod cannot be scheduled",
+    "topic": "FailedScheduling",
+    "request": {
+      "manifest": "apiVersion: v1\nkind: Pod\nmetadata:\n  name: worker\nspec:\n  containers:\n  - name: app\n    image: busybox:1.36\n    resources:\n      requests:\n        cpu: \"16\"\n        memory: 32Gi\n",
+      "logs": "No application logs: Pod remains Pending.",
+      "events": "Warning FailedScheduling: 0/2 nodes are available: 2 Insufficient cpu.",
+      "kubernetes_version": "1.34.0",
+      "github_lookup": false
+    },
+    "response": {
+      "diagnosis": {
+        "observations": [
+          {
+            "text": "Scheduler events report insufficient CPU on both available nodes.",
+            "evidence_ids": [
+              "input-events"
+            ]
+          }
+        ],
+        "hypotheses": [
+          {
+            "text": "The Pod CPU request may exceed available allocatable capacity; verify node capacity and competing requests.",
+            "evidence_ids": [
+              "input-events",
+              "input-logs",
+              "doc-1"
+            ]
+          }
+        ],
+        "missing_evidence": [
+          "Collect node allocatable resources, existing requests, and any scheduling constraints."
+        ],
+        "conflicts": [],
+        "next_steps": [
+          {
+            "text": "Collect additional read-only diagnostic evidence and compare it with the observed events.",
+            "evidence_ids": [
+              "input-events",
+              "doc-1"
+            ],
+            "command": "kubectl describe nodes"
+          }
+        ]
+      },
+      "evidence": [
+        {
+          "id": "input-manifest",
+          "kind": "user",
+          "title": "Example manifest",
+          "text": "apiVersion: v1\nkind: Pod\nmetadata:\n  name: worker\nspec:\n  containers:\n  - name: app\n    image: busybox:1.36\n    resources:\n      requests:\n        cpu: \"16\"\n        memory: 32Gi\n",
+          "url": null,
+          "version": null,
+          "origin": "recorded_example"
+        },
+        {
+          "id": "input-logs",
+          "kind": "user",
+          "title": "Example logs",
+          "text": "No application logs: Pod remains Pending.",
+          "url": null,
+          "version": null,
+          "origin": "recorded_example"
+        },
+        {
+          "id": "input-events",
+          "kind": "user",
+          "title": "Example events",
+          "text": "Warning FailedScheduling: 0/2 nodes are available: 2 Insufficient cpu.",
+          "url": null,
+          "version": null,
+          "origin": "recorded_example"
+        },
+        {
+          "id": "doc-1",
+          "kind": "documentation",
+          "title": "Curated summary: Kubernetes Pod troubleshooting",
+          "text": "Inspect Pod status and recent events first. Use container logs to investigate repeated startup failures; a Pending Pod requires scheduling investigation. This is an authored demonstration summary, not a verbatim retrieved excerpt.",
+          "url": "https://kubernetes.io/docs/tasks/debug/debug-application/debug-pods/",
+          "version": "release-1.34",
+          "origin": "recorded_example"
+        }
+      ],
+      "warnings": [
+        "Curated recorded demonstration; not live model generation or proof of a fix."
+      ],
+      "tool_trace": [
+        {
+          "tool": "recorded_demo",
+          "status": "curated_example"
+        }
+      ],
+      "usage": {
+        "provider": "none",
+        "model": "authored-demo",
+        "prompt_tokens": 0,
+        "completion_tokens": 0
+      },
+      "latency_ms": 0,
+      "mode": "recorded_demo"
+    }
+  }
+]

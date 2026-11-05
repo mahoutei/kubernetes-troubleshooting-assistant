@@ -108,3 +108,23 @@ def test_retrieve_rejects_non_positive_top_k():
         assert "top_k" in str(exc)
     else:
         raise AssertionError("expected ValueError")
+
+
+def test_timing_metadata_is_isolated_between_concurrent_requests():
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Barrier
+
+    retriever = Retriever(None, None, None)
+    barrier = Barrier(2)
+
+    def request(value):
+        retriever.last_timings = {"dense_ms": value}
+        barrier.wait(timeout=5)
+        return retriever.last_timings
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        first = pool.submit(request, 1)
+        second = pool.submit(request, 2)
+        assert first.result(timeout=5) == {"dense_ms": 1}
+        assert second.result(timeout=5) == {"dense_ms": 2}
+    assert retriever.last_timings == {}

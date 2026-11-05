@@ -1,0 +1,23 @@
+{
+  "health": {
+    "status": "degraded",
+    "chunks": 0,
+    "error": "index not found: /tmp/missing-troubleshooting-demo-index; run scripts/build_index.py"
+  },
+  "demos": [
+    {
+      "id": "crashloop",
+      "recorded_demo": "passed"
+    },
+    {
+      "id": "imagepull",
+      "recorded_demo": "passed"
+    },
+    {
+      "id": "pending",
+      "recorded_demo": "passed"
+    }
+  ],
+  "live_provider_check": false,
+  "semantic_review": "pending human review"
+}

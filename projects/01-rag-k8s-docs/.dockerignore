@@ -6,3 +6,10 @@ tests/
 **/__pycache__
 .venv/
 .ruff_cache/
+
+.git/
+.env
+.env.*
+.hf-cache/
+.uv-cache/
+.pytest_cache/

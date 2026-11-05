@@ -7,10 +7,10 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
-cp -r "$ROOT"/. "$TMP"/
-rm -rf "$TMP/.git" "$TMP/.venv" "$TMP/data" "$TMP/.hf-cache" "$TMP/.uv-cache" \
-       "$TMP/.pytest_cache" "$TMP/.ruff_cache" "$TMP/evals/cache"
-find "$TMP" -name __pycache__ -type d -prune -exec rm -rf {} +
+# Stage only deployable files; local secrets and caches never enter the Space repo.
+tar -C "$ROOT" --exclude=__pycache__ -cf - \
+  Dockerfile .dockerignore pyproject.toml uv.lock ATTRIBUTIONS.md src app scripts \
+  | tar -C "$TMP" -xf -
 
 # Keep the project README content; HF only needs the metadata frontmatter on top.
 {
@@ -28,6 +28,12 @@ pinned: false
 EOF
   cat "$ROOT/README.md"
 } > "$TMP/README.md"
+
+if [ "${2:-}" = "--dry-run" ]; then
+  echo "Deployment staging verified (no push):"
+  find "$TMP" -type f | sed "s|$TMP/||" | sort
+  exit 0
+fi
 
 cd "$TMP"
 git init -q

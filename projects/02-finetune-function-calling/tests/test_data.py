@@ -191,3 +191,54 @@ def test_load_examples_dedupes_across_files(tmp_path):
     first.write_text(json.dumps(rows[:1]))
     second.write_text(json.dumps(rows[:1]))
     assert len(load_examples([first, second])) == 1
+
+
+def test_clarification_history_survives_serialization(tmp_path):
+    from src.data import write_jsonl
+    from src.prompts import build_messages
+
+    row = {
+        "id": "clarification",
+        "tools": [{"name": "weather", "parameters": {}}],
+        "conversations": [
+            {"from": "system", "value": "Tools"},
+            {"from": "human", "value": "What is the weather?"},
+            {"from": "gpt", "value": "Which city?"},
+            {"from": "human", "value": "Singapore"},
+            {"from": "gpt", "value": '<tool_call>{"name":"weather","arguments":{"city":"Singapore"}}</tool_call>'},
+        ],
+    }
+    example = parse_hermes_row(row, "test")
+    path = tmp_path / "examples.jsonl"
+    write_jsonl([example], path)
+    restored = Example(**json.loads(path.read_text()))
+    assert build_messages(restored)[1:] == [
+        {"role": "user", "content": "What is the weather?"},
+        {"role": "assistant", "content": "Which city?"},
+        {"role": "user", "content": "Singapore"},
+    ]
+
+
+def test_deduplication_preserves_distinct_conversation_histories():
+    from dataclasses import replace
+
+    first = _examples()[0]
+    second = replace(first, history=[{"role": "user", "content": "different request"}])
+    assert len(dedupe([first, second])) == 2
+    assert len(dedupe_near([first, second])) == 2
+
+
+def test_split_integrity_rejects_substituted_examples_with_same_count():
+    from dataclasses import replace
+
+    examples = _examples()
+    splits = split_examples(examples, seed=0, ratios=(0.5, 0.25, 0.25))
+    splits["train"][0] = replace(splits["train"][0], user="corrupted")
+    with pytest.raises(ValueError, match="original examples"):
+        assert_split_integrity(examples, splits)
+
+
+@pytest.mark.parametrize("ratios", [(1.1, -0.2, 0.1), (0.8, 0.2), (float("nan"), 0.1, 0.1)])
+def test_split_rejects_invalid_ratios(ratios):
+    with pytest.raises(ValueError):
+        split_examples(_examples(), ratios=ratios)

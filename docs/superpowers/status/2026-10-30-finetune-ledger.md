@@ -1,5 +1,8 @@
 # Function-calling fine-tune ledger
 
+> **Historical record:** this document preserves earlier plans, decisions, or observations. See [current status and next milestones](../../STATUS.md) for the maintained project status.
+
+
 - Plan: `docs/superpowers/plans/2026-10-29-finetune-function-calling.md`
 - Spec: `docs/superpowers/specs/2026-10-29-llm-portfolio-design.md`
 - Branch: `master`
@@ -62,3 +65,8 @@ The manifest at `data/processed/manifest.json` is gitignored; it records the rev
 - Tests run on CPU with the existing Python 3.12 venv; no network, model weights, GPU, or API keys.
 - Training (Task 3) needs Colab/Kaggle T4; API baseline (Task 6) needs `GROQ_API_KEY`; forgetting (Task 7) needs the HF Hub MMLU download.
 - Raw data and processed splits are gitignored; only the pin, scripts, tests, and this ledger are committed.
+
+
+## Debugging update — 2026-11-04
+
+Conversation-preserving preprocessing v2 supersedes the earlier counts above. The real-data rerun produced 5,123 parsed/deduplicated examples, split 4,098 / 512 / 513; length filtering retained 4,097 / 512 / 513. Of those, 1,051 preserve prior conversation history. Manifest/model/length compatibility is checked before training; regenerate old processed data. CPU verification is now 32 passing tests with lint clean. GPU smoke execution remains pending. See `docs/debugging/2026-11-04-debugging-report.md`.

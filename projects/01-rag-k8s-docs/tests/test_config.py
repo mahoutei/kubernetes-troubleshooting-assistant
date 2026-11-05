@@ -62,3 +62,19 @@ def test_rejects_unknown_fallback_provider(monkeypatch):
 def test_rejects_same_fallback_and_primary():
     with pytest.raises(ValueError, match="differ"):
         Settings(llm_fallback_provider="groq")
+
+
+def test_settings_reject_non_positive_retrieval_and_generation_limits():
+    import pytest
+
+    for name in ("top_k_dense", "top_k_bm25", "top_k_rerank", "top_k_context", "rrf_k", "max_answer_tokens"):
+        with pytest.raises(ValueError, match=name):
+            Settings(**{name: 0})
+
+
+def test_cpu_serving_defaults_to_hybrid_and_reranking_is_opt_in(monkeypatch):
+    assert Settings().retrieval_mode == "hybrid"
+    monkeypatch.setenv("RAG_RETRIEVAL_MODE", "hybrid_rerank")
+    assert Settings.from_env().retrieval_mode == "hybrid_rerank"
+    with pytest.raises(ValueError, match="retrieval_mode"):
+        Settings(retrieval_mode="anything")

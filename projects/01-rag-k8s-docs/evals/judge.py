@@ -4,7 +4,7 @@ import hashlib
 import json
 from pathlib import Path
 
-RUBRIC_VERSION = "v1"
+RUBRIC_VERSION = "v2"
 # The judge deliberately uses a different model family from the generator so a
 # single model cannot grade its own output. Override with --judge-model.
 JUDGE_PROVIDER = "gemini"
@@ -23,8 +23,14 @@ Example: {"correct": 1, "faithful": 1, "citation_support": 1, "refusal_correct":
 RETRY_PROMPT = "Your previous reply was not valid. Return only the JSON object, with integer 0/1 values."
 
 
-def cache_key(question: str, candidate: str, reference: str, context: str) -> str:
-    payload = f"{RUBRIC_VERSION}\n{question}\n{candidate}\n{reference}\n{context}"
+def cache_key(
+    question: str, candidate: str, reference: str, context: str,
+    provider: str = JUDGE_PROVIDER, model: str = JUDGE_MODEL,
+) -> str:
+    payload = json.dumps(
+        [RUBRIC_VERSION, provider, model, JUDGE_PROMPT, question, candidate, reference, context],
+        ensure_ascii=False,
+    )
     return hashlib.sha256(payload.encode()).hexdigest()
 
 
@@ -59,15 +65,20 @@ def invalid_result(error: str) -> dict:
 
 
 class Judge:
-    def __init__(self, llm, cache_dir: str | Path = "evals/cache") -> None:
+    def __init__(
+        self, llm, cache_dir: str | Path = "evals/cache",
+        provider: str = JUDGE_PROVIDER, model: str = JUDGE_MODEL,
+    ) -> None:
         self.llm = llm
+        self.provider = provider
+        self.model = model
         self.cache_dir = Path(cache_dir)
         self.cache_dir.mkdir(parents=True, exist_ok=True)
 
     def score(
         self, question: str, candidate: str, reference: str, context: str
     ) -> dict:
-        key = cache_key(question, candidate, reference, context)
+        key = cache_key(question, candidate, reference, context, self.provider, self.model)
         path = self.cache_dir / f"{key}.json"
         if path.exists():
             return json.loads(path.read_text(encoding="utf-8"))

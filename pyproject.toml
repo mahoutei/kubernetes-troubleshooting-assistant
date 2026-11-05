@@ -1,0 +1,22 @@
+[project]
+name = "llm-portfolio-dev"
+version = "0.1.0"
+requires-python = ">=3.12,<3.13"
+description = "CPU-only contributor checks for the independent portfolio projects"
+dependencies = [
+  "pytest>=8.0",
+  "ruff>=0.6",
+  "fastapi>=0.115",
+  "httpx>=0.27",
+  "numpy>=1.26",
+  "lancedb>=0.15",
+  "rank-bm25>=0.2.2",
+  "pyyaml>=6.0",
+]
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]

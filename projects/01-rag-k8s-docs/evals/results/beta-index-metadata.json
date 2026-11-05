@@ -1,0 +1,66 @@
+{
+  "chunks": 12084,
+  "embed_model": "BAAI/bge-small-en-v1.5",
+  "docs_url": "https://github.com/kubernetes/website/archive/47132eb5367cfdcba0a3b33a0b3ffc81185bd7e8.tar.gz",
+  "chunk_tokens": 500,
+  "chunk_overlap": 0.15,
+  "chunker_version": 3,
+  "embedding_max_seq_length": 512,
+  "truncated_chunks": 34,
+  "chunker_sha256": "4c20fb4de247d6b6161bd7b6504ea2f430c269650f66e4afbcac788cff5a5bc8",
+  "requested_chunk_tokens": 500,
+  "encoder_token_budget": 510,
+  "reused_vectors": 12074,
+  "reuse_sources": [
+    {
+      "path": "data/index-beta-500",
+      "metadata": {
+        "chunks": 12087,
+        "embed_model": "BAAI/bge-small-en-v1.5",
+        "docs_url": "https://github.com/kubernetes/website/archive/47132eb5367cfdcba0a3b33a0b3ffc81185bd7e8.tar.gz",
+        "chunk_tokens": 500,
+        "chunk_overlap": 0.15,
+        "chunker_version": 3,
+        "embedding_max_seq_length": 512,
+        "truncated_chunks": 28,
+        "requested_chunk_tokens": 500,
+        "encoder_token_budget": 510,
+        "reused_vectors": 7323,
+        "reuse_sources": [
+          {
+            "path": "data/index",
+            "metadata": {
+              "chunks": 11744,
+              "embed_model": "BAAI/bge-small-en-v1.5",
+              "docs_url": "https://github.com/kubernetes/website/archive/47132eb5367cfdcba0a3b33a0b3ffc81185bd7e8.tar.gz",
+              "chunk_tokens": 500,
+              "chunk_overlap": 0.15
+            }
+          },
+          {
+            "path": "data/index-300",
+            "metadata": {
+              "chunks": 16664,
+              "embed_model": "BAAI/bge-small-en-v1.5",
+              "docs_url": "https://github.com/kubernetes/website/archive/47132eb5367cfdcba0a3b33a0b3ffc81185bd7e8.tar.gz",
+              "chunk_tokens": 300,
+              "chunk_overlap": 0.15
+            }
+          },
+          {
+            "path": "data/index-800",
+            "metadata": {
+              "chunks": 10014,
+              "embed_model": "BAAI/bge-small-en-v1.5",
+              "docs_url": "https://github.com/kubernetes/website/archive/47132eb5367cfdcba0a3b33a0b3ffc81185bd7e8.tar.gz",
+              "chunk_tokens": 800,
+              "chunk_overlap": 0.15
+            }
+          }
+        ],
+        "reuse_note": "Opt-in exact text/model-ID reuse; legacy indexes do not pin encoder revision"
+      }
+    }
+  ],
+  "reuse_note": "Opt-in exact text/model-ID reuse; legacy indexes do not pin encoder revision"
+}

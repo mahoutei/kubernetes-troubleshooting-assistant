@@ -27,3 +27,28 @@ def test_resume_true_becomes_bool_and_paths_pass_through():
     assert resume_from_checkpoint("true") is True
     assert resume_from_checkpoint("outputs/checkpoint-200") == "outputs/checkpoint-200"
     assert resume_from_checkpoint(None) is None
+
+
+def test_smoke_training_evaluates_within_requested_steps():
+    from training.train import evaluation_steps
+
+    assert evaluation_steps(2) == 2
+    assert evaluation_steps(300) == 200
+    assert evaluation_steps(-1) == 200
+
+
+def test_training_rejects_stale_or_incompatible_preprocessing(tmp_path):
+    import json
+
+    from src.data import PREPROCESSING_VERSION
+    from training.train import validate_manifest
+
+    path = tmp_path / "manifest.json"
+    valid = {"preprocessing_version": PREPROCESSING_VERSION, "tokenizer_model": "m", "max_seq_length": 2048}
+    config = {"model": "m", "max_seq_length": 2048}
+    path.write_text(json.dumps(valid))
+    validate_manifest(path, config)
+    for key, value in [("preprocessing_version", 1), ("tokenizer_model", "other"), ("max_seq_length", 100)]:
+        path.write_text(json.dumps({**valid, key: value}))
+        with pytest.raises(ValueError, match="rerun"):
+            validate_manifest(path, config)

@@ -60,6 +60,7 @@ def evaluate_question(
     retrieval_ms: int,
     answer=None,
     judge: Judge | None = None,
+    context=None,
 ) -> dict:
     urls = [item.chunk.url for item in retrieved]
     gold = {source.url for source in question.gold_sources}
@@ -100,7 +101,12 @@ def evaluate_question(
     if question.category == "unanswerable":
         row["refusal_correct"] = 1 if row["refused"] else 0
     if judge is not None:
-        context = "\n\n".join(item.chunk.text for item in retrieved)
+        from rag.generate import build_messages
+
+        context_items = retrieved if context is None else context
+        context = build_messages(
+            question.question, [item.chunk for item in context_items]
+        )[1]["content"]
         row["judge"] = judge.score(
             question.question, answer.text, question.reference_answer, context
         )
@@ -153,9 +159,12 @@ def run_eval(
     answer_fn=None,
     judge: Judge | None = None,
     top_k: int = 20,
+    context_k: int = 5,
 ) -> dict:
     if top_k < 1:
         raise ValueError("top_k must be >= 1")
+    if not 1 <= context_k <= top_k:
+        raise ValueError("context_k must be between 1 and top_k")
     if not questions:
         raise ValueError("no questions selected")
     rows = []
@@ -164,7 +173,7 @@ def run_eval(
         timings = getattr(retriever, "last_timings", {}) or {}
         answer = None
         if answer_fn is not None:
-            answer = answer_fn(question.question, [item.chunk for item in retrieved])
+            answer = answer_fn(question.question, [item.chunk for item in retrieved[:context_k]])
         rows.append(
             evaluate_question(
                 question,
@@ -172,12 +181,14 @@ def run_eval(
                 _retrieval_ms(timings),
                 answer=answer,
                 judge=judge,
+                context=retrieved[:context_k],
             )
         )
     categories = sorted({row["category"] for row in rows})
     return {
         "generated_at": datetime.now(UTC).isoformat(),
         "top_k": top_k,
+        "context_k": context_k,
         "questions": len(rows),
         "metrics": _aggregate(rows),
         "slices": {category: _aggregate([r for r in rows if r["category"] == category]) for category in categories},
@@ -222,7 +233,7 @@ def build_judge(settings: Settings, model: str, cache_dir: str) -> Judge:
         llm_fallback_base_url=None,
         llm_fallback_api_key=None,
     )
-    return Judge(LLMClient(judge_settings), cache_dir=cache_dir)
+    return Judge(LLMClient(judge_settings), cache_dir=cache_dir, provider=JUDGE_PROVIDER, model=model)
 
 
 def threshold_failures(metrics: dict, thresholds: dict | None = None) -> list[str]:
@@ -242,6 +253,7 @@ def main(argv: list[str] | None = None) -> int:
         "--mode", choices=("dense", "hybrid", "hybrid_rerank"), default="hybrid_rerank"
     )
     parser.add_argument("--top-k", type=int, default=20)
+    parser.add_argument("--context-k", type=int, default=5, help="generation context size (API default: 5)")
     parser.add_argument("--index-dir", default=None)
     parser.add_argument("--retrieval-only", action="store_true")
     parser.add_argument("--offline", action="store_true")
@@ -255,6 +267,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--limit", type=int, default=0)
     parser.add_argument("--no-thresholds", action="store_true")
     args = parser.parse_args(argv)
+    if not 1 <= args.context_k <= args.top_k:
+        parser.error("--context-k must be between 1 and --top-k")
 
     questions = load_questions(args.questions)
     if args.smoke:
@@ -322,8 +336,11 @@ def main(argv: list[str] | None = None) -> int:
                     return 1
 
     payload = run_eval(
-        selected, retriever, answer_fn=answer_fn, judge=judge, top_k=args.top_k
+        selected, retriever, answer_fn=answer_fn, judge=judge,
+        top_k=args.top_k, context_k=args.context_k
     )
+    metadata_path = Path(settings.index_dir) / "meta.json"
+    payload["index_metadata"] = json.loads(metadata_path.read_text()) if metadata_path.exists() else None
     payload.update(
         {
             "split": args.split,

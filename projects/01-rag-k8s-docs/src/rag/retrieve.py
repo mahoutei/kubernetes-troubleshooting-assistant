@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import time
 from collections import defaultdict
+from contextvars import ContextVar
 
 from rag.models import RetrievedChunk
 
@@ -51,7 +52,15 @@ class Retriever:
             if top_k_context is not None
             else getattr(settings, "top_k_context", 5)
         )
-        self.last_timings: dict[str, int] = {}
+        self._timings: ContextVar[dict[str, int] | None] = ContextVar("retrieval_timings", default=None)
+
+    @property
+    def last_timings(self) -> dict[str, int]:
+        return dict(self._timings.get() or {})
+
+    @last_timings.setter
+    def last_timings(self, timings: dict[str, int]) -> None:
+        self._timings.set(dict(timings))
 
     def retrieve(self, question: str, top_k: int | None = None) -> list[RetrievedChunk]:
         limit = self.top_k_context if top_k is None else top_k
@@ -99,7 +108,7 @@ class Retriever:
         scores = self.reranker.score(question, [c.text for c in candidates])
         rerank_ms = int((time.perf_counter() - rerank_started) * 1000)
         self.last_timings = {"dense_ms": dense_ms, "bm25_ms": bm25_ms, "rerank_ms": rerank_ms}
-        ranked = sorted(zip(candidates, scores), key=lambda pair: -pair[1])[:limit]
+        ranked = sorted(zip(candidates, scores, strict=True), key=lambda pair: -pair[1])[:limit]
         return [
             RetrievedChunk(
                 chunk=chunk,

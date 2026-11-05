@@ -120,3 +120,20 @@ def test_offline_citation_points_at_the_selected_chunk():
     assert answer.text.endswith("[2]")
     assert answer.citations[0].id == 2
     assert answer.citations[0].url == "u2"
+
+
+@pytest.mark.parametrize("empty", ["", "  ", None])
+def test_empty_provider_answer_uses_fallback(empty):
+    client = LLMClient(
+        Settings(), endpoints=_endpoints(),
+        client_factory=lambda endpoint: _fake_client(text=empty if endpoint.provider == "groq" else "valid [1]"),
+    )
+    answer, usage = client.complete([], 10)
+    assert answer == "valid [1]"
+    assert usage.provider == "gemini"
+
+
+def test_all_empty_provider_answers_fail_loudly():
+    client = LLMClient(Settings(), endpoints=_endpoints(), client_factory=lambda endpoint: _fake_client(text=""))
+    with pytest.raises(LLMError, match="empty answer"):
+        client.complete([], 10)

@@ -1,5 +1,8 @@
 # Plan audit — function-calling LoRA plan and portfolio design spec
 
+> **Historical record:** this document preserves earlier plans, decisions, or observations. See [current status and next milestones](../STATUS.md) for the maintained project status.
+
+
 Date: 2026-10-29
 Scope: `docs/superpowers/plans/2026-10-29-finetune-function-calling.md` (1,763 lines at audit time) and `docs/superpowers/specs/2026-10-29-llm-portfolio-design.md` (301 lines at audit time), on branch `feat/rag-eval`.
 Status: docs-only reconciliation. The plan has never been executed; `projects/02-finetune-function-calling/` does not exist yet, so every fix below is a documentation change, not a code change. No commit was made.

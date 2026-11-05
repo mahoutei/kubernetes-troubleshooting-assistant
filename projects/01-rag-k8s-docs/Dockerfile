@@ -8,7 +8,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     RAG_OFFLINE=0 \
     HF_HOME=/models \
-    RAG_INDEX_DIR=/app/data/index
+    RAG_INDEX_DIR=/app/data/index \
+    RAG_STATIC_DIR=/app/app/static
 
 WORKDIR /app
 
@@ -17,22 +18,24 @@ COPY --from=ghcr.io/astral-sh/uv:0.13.6 /uv /uvx /bin/
 
 # Dependency layer first: src/app changes must not bust `uv sync`.
 COPY pyproject.toml uv.lock ./
-RUN uv sync --frozen --no-dev
+RUN uv sync --frozen --no-dev --no-install-project
 
 # BOTH models are pre-downloaded here: the API loads the embedder and the
-# reranker at import time and the Space has no shell to warm them later.
+# reranker during application startup and the Space has no shell to warm them later.
 RUN uv run --no-sync python - <<'PY'
-from sentence_transformers import SentenceTransformer
+from sentence_transformers import CrossEncoder, SentenceTransformer
 
 SentenceTransformer("BAAI/bge-small-en-v1.5")
-SentenceTransformer("BAAI/bge-reranker-base")
+CrossEncoder("BAAI/bge-reranker-base")
 PY
 
 # Index layer: copy only the builder inputs. app/, evals/ and tests/ are copied
 # after this layer so changes there never invalidate the expensive index build.
 COPY scripts ./scripts
 COPY src ./src
-RUN uv run --no-sync python scripts/build_index.py
+RUN uv sync --frozen --no-dev --no-editable
+ARG INDEX_FILE_LIMIT=0
+RUN uv run --no-sync python scripts/build_index.py --limit "$INDEX_FILE_LIMIT"
 
 COPY app ./app
 

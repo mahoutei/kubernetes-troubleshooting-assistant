@@ -66,12 +66,51 @@ def test_health_reports_ready():
 
 
 def test_missing_index_is_degraded(tmp_path):
-    client = TestClient(create_app(Settings(index_dir=str(tmp_path / "missing"), offline=True)))
-    body = client.get("/health").json()
-    assert body["status"] == "degraded"
-    assert "index not found" in body["error"]
+    with TestClient(create_app(Settings(index_dir=str(tmp_path / "missing"), offline=True))) as client:
+        body = client.get("/health").json()
+        assert body["status"] == "degraded"
+        assert "index not found" in body["error"]
 
 
 def test_missing_index_ask_is_503(tmp_path):
-    client = TestClient(create_app(Settings(index_dir=str(tmp_path / "missing"), offline=True)))
-    assert client.post("/ask", json={"question": "What is a Pod?"}).status_code == 503
+    with TestClient(create_app(Settings(index_dir=str(tmp_path / "missing"), offline=True))) as client:
+        assert client.post("/ask", json={"question": "What is a Pod?"}).status_code == 503
+
+
+def test_health_handles_unavailable_index_on_injected_retriever():
+    app = fake_app()
+    app.state.retriever.index = None
+    assert TestClient(app).get("/health").json()["chunks"] == 0
+
+
+def test_api_snapshots_timings_before_generation():
+    app = fake_app()
+    retriever = app.state.retriever
+
+    class MutatingLLM:
+        def complete(self, messages, max_tokens):
+            retriever.last_timings = {"dense_ms": 999}
+            return "A Pod [1]", Usage()
+
+    app.state.llm = MutatingLLM()
+    response = TestClient(app).post("/ask", json={"question": "What is a Pod?"})
+    assert response.json()["retrieval"]["dense_ms"] == 1
+
+
+def test_models_load_at_startup_instead_of_app_construction(monkeypatch):
+    from rag import api
+
+    calls = []
+    retriever = fake_app().state.retriever
+
+    def load(settings):
+        calls.append("loaded")
+        return retriever
+
+    monkeypatch.setattr(api, "_default_retriever", load)
+    app = create_app(Settings(offline=True))
+    assert calls == []
+    with TestClient(app) as client:
+        assert calls == ["loaded"]
+        assert client.get("/health").json()["status"] == "ok"
+        assert client.post("/ask", json={"question": "What is a Pod?"}).status_code == 200

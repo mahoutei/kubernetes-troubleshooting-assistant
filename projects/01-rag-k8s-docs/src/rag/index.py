@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import pickle
+import warnings
 from pathlib import Path
 
 import lancedb
@@ -32,8 +33,13 @@ class Index:
         return self.chunks[chunk_id]
 
     def dense_search(self, vector: np.ndarray, k: int) -> list[tuple[str, float]]:
-        rows = self.table.search(vector.tolist()).limit(k).to_list()
-        return [(row["id"], float(row.get("_distance", 0.0))) for row in rows]
+        # Legacy indexes may contain repeated rows for identical chunks.
+        extra = self.table.count_rows() - self.count
+        rows = self.table.search(vector.tolist()).limit(k + extra).to_list()
+        unique: dict[str, float] = {}
+        for row in rows:
+            unique.setdefault(row["id"], float(row["_distance"]))
+        return list(unique.items())[:k]
 
     def bm25_search(self, query: str, k: int) -> list[tuple[str, float]]:
         scores = self.bm25.get_scores(_tokenize(query))
@@ -46,11 +52,14 @@ class Index:
     @classmethod
     def load(cls, settings: Settings) -> Index:
         index_dir = Path(settings.index_dir)
+        meta = json.loads((index_dir / "meta.json").read_text())
+        if meta.get("embed_model") != settings.embed_model:
+            raise ValueError("index embedding model differs from settings; rebuild the index")
         db = lancedb.connect(str(index_dir / "lancedb"))
         table = db.open_table("chunks")
         with (index_dir / "bm25.pkl").open("rb") as f:
             payload = pickle.load(f)
-        rows = table.to_arrow().to_pylist()
+        rows = table.search().select(["id", "text", "url", "heading", "source_path", "version"]).limit(table.count_rows()).to_arrow().to_pylist()
         chunks = {
             row["id"]: Chunk(
                 id=row["id"],
@@ -62,13 +71,37 @@ class Index:
             )
             for row in rows
         }
-        return cls(table, payload["bm25"], payload["ids"], chunks, settings)
+        ids = payload["ids"]
+        if (len(rows) != len(ids) or set(ids) != set(chunks)
+                or payload["bm25"].corpus_size != len(ids) or meta.get("chunks") != len(ids)):
+            raise ValueError("inconsistent index artifacts; rebuild the index")
+        for row in rows:
+            if any(getattr(chunks[row["id"]], key) != value for key, value in row.items()):
+                raise ValueError("conflicting rows share a chunk id; rebuild the index")
+        bm25 = payload["bm25"]
+        if len(ids) != len(set(ids)):
+            warnings.warn(
+                "legacy index contains duplicate chunks; deduplicating retrieval in memory. "
+                "Rebuild the index and rerun evaluations before reporting new results",
+                UserWarning, stacklevel=2,
+            )
+            ids = list(dict.fromkeys(ids))
+            bm25 = BM25Okapi([_tokenize(chunks[chunk_id].text) for chunk_id in ids])
+        return cls(table, bm25, ids, chunks, settings)
 
 
 def build_index(chunks: list[Chunk], embedder, settings: Settings) -> Index:
+    if not chunks:
+        raise ValueError("cannot build an empty index")
+    if len({c.id for c in chunks}) != len(chunks):
+        raise ValueError("chunk ids must be unique")
+    vectors = np.asarray(embedder.encode([c.text for c in chunks]))
+    if vectors.ndim != 2 or vectors.shape[0] != len(chunks) or vectors.shape[1] == 0:
+        raise ValueError("embedder must return one non-empty vector per chunk")
+    if not np.isfinite(vectors).all():
+        raise ValueError("embedding vectors must be finite")
     index_dir = Path(settings.index_dir)
     index_dir.mkdir(parents=True, exist_ok=True)
-    vectors = embedder.encode([c.text for c in chunks])
     rows = [
         {
             "id": c.id,
@@ -79,7 +112,7 @@ def build_index(chunks: list[Chunk], embedder, settings: Settings) -> Index:
             "version": c.version,
             "vector": vec.tolist(),
         }
-        for c, vec in zip(chunks, vectors)
+        for c, vec in zip(chunks, vectors, strict=True)
     ]
     db = lancedb.connect(str(index_dir / "lancedb"))
     table = db.create_table("chunks", data=rows, mode="overwrite")
@@ -95,6 +128,9 @@ def build_index(chunks: list[Chunk], embedder, settings: Settings) -> Index:
         "docs_url": settings.docs_url,
         "chunk_tokens": settings.chunk_tokens,
         "chunk_overlap": settings.chunk_overlap,
+        "chunker_version": 3,
+        "embedding_max_seq_length": getattr(getattr(embedder, "model", None), "max_seq_length", None),
+        "truncated_chunks": getattr(embedder, "last_truncated_count", None),
     }
     (index_dir / "meta.json").write_text(json.dumps(meta, indent=2))
     return Index(table, bm25, ids, {c.id: c for c in chunks}, settings)

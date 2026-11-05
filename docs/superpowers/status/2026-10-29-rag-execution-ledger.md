@@ -1,5 +1,8 @@
 # RAG execution ledger (checkpointed)
 
+> **Historical record:** this document preserves earlier plans, decisions, or observations. See [current status and next milestones](../../STATUS.md) for the maintained project status.
+
+
 > Checkpoint of the SDD execution ledger that previously lived only in an untracked `.superpowers/` directory of the external build worktree. Kept in-repo so the rulings that explain plan-vs-code drift survive.
 
 - Plan: `docs/superpowers/plans/2026-10-29-rag-k8s-docs.md`
@@ -34,7 +37,7 @@ Findings: on the 30-question dev set, hybrid raises recall@10 and nDCG over dens
 - `5ed5b08` adds `README.md`, `ATTRIBUTIONS.md`, and the offline extractive baseline.
 - Offline baseline (`--offline --mode hybrid`, n=30): citation P/R 0.600/0.500, fact coverage 0.190, refusal 0.000, p95 225 ms. The extractive answerer always answers, so this is a no-key baseline, not generation quality.
 - Local checks: 72 tests, ruff, `ok: 60 questions`, CI YAML parses with PyYAML, `bash -n` passes.
-- Chunk-size sweep: the 800-token index built in 1,778 s — 10,014 chunks, 30 MB. Dev retrieval (n=30): dense R@5/R@10/R@20 0.860/0.920/0.920, MRR 0.769, nDCG 0.786, p95 59 ms; hybrid 0.760/0.900/0.940, MRR 0.769, nDCG 0.783, p95 125 ms; hybrid+rerank 0.880/0.940/0.940, MRR 0.819, nDCG 0.843, p95 15,128 ms. At 800 tokens the reranker improves MRR/nDCG over the 500 run but recall@5 is 0.02 lower; with n=30 these are directional. The 300-token build was stopped after concurrent builds throttled to ~44 s/batch (versus ~13–20 s/batch alone); it is deferred with the exact command in the README, and no partial numbers are committed. Results: `evals/results/ablation-800-*.json`.
+- Chunk-size sweep: 300-token index built in 2,087 s — 16,664 chunks, 43 MB. Dev retrieval (n=30): dense R@5/R@10/R@20 0.840/0.900/0.920, MRR 0.729, nDCG 0.754, p95 84 ms; hybrid 0.740/0.820/0.920, MRR 0.725, nDCG 0.729, p95 254 ms; hybrid+rerank running. 800-token index built in 1,778 s — 10,014 chunks, 30 MB: dense 0.860/0.920/0.920, MRR 0.769, nDCG 0.786, p95 59 ms; hybrid 0.760/0.900/0.940, MRR 0.769, nDCG 0.783, p95 125 ms; hybrid+rerank 0.880/0.940/0.940, MRR 0.819, nDCG 0.843, p95 15,128 ms. At 300 tokens the smaller chunks hurt recall; at 800 the reranker improves MRR/nDCG over 500 but recall@5 is 0.02 lower. With n=30 these are directional. Results: `evals/results/ablation-{300,800}-*.json`.
 - Human gates unchanged: API keys for generation/judge, signed certification, Docker/HF deploy, license.
 
 ## Task 8 (recorded after the original ledger ended)

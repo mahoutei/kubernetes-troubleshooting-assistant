@@ -33,6 +33,7 @@ class Settings:
     chunk_overlap: float = 0.15
     embed_model: str = "BAAI/bge-small-en-v1.5"
     rerank_model: str = "BAAI/bge-reranker-base"
+    retrieval_mode: str = "hybrid"
     top_k_dense: int = 50
     top_k_bm25: int = 50
     top_k_rerank: int = 20
@@ -54,6 +55,12 @@ class Settings:
             raise ValueError("chunk_tokens must be between 100 and 2000")
         if not 0.0 <= self.chunk_overlap < 1.0:
             raise ValueError("chunk_overlap must be in [0, 1)")
+        for name in ("top_k_dense", "top_k_bm25", "top_k_rerank", "top_k_context", "rrf_k", "max_answer_tokens"):
+            value = getattr(self, name)
+            if type(value) is not int or value < 1:
+                raise ValueError(f"{name} must be a positive integer")
+        if self.retrieval_mode not in {"dense", "hybrid", "hybrid_rerank"}:
+            raise ValueError("retrieval_mode must be dense, hybrid, or hybrid_rerank")
         if self.top_k_context > self.top_k_rerank:
             raise ValueError("top_k_context cannot exceed top_k_rerank")
         if self.llm_provider not in PROVIDER_DEFAULTS:
@@ -85,6 +92,7 @@ class Settings:
             fallback = None
 
         return cls(
+            retrieval_mode=os.getenv("RAG_RETRIEVAL_MODE", "hybrid"),
             docs_dir=os.getenv("RAG_DOCS_DIR", "data/docs"),
             index_dir=os.getenv("RAG_INDEX_DIR", "data/index"),
             llm_provider=provider,

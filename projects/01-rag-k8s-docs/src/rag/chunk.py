@@ -8,7 +8,7 @@ from rag.models import Chunk
 
 FRONTMATTER_RE = re.compile(r"\A---\s*\n(.*?)\n---\s*\n", re.DOTALL)
 SHORTCODE_RE = re.compile(r"\{\{[<%].*?[>%]\}\}", re.DOTALL)
-HEADING_RE = re.compile(r"^(#{1,6})\s+(.+?)\s*$", re.MULTILINE)
+HEADING_RE = re.compile(r"^(#{1,6})[ \t]+(.+?)[ \t]*$", re.MULTILINE)
 
 
 def _frontmatter(text: str) -> tuple[dict[str, str], str]:
@@ -35,14 +35,25 @@ def _url(source_path: str, anchor_heading: str) -> str:
     return f"{base}#{_slug(anchor_heading)}" if anchor_heading else base
 
 
+def _next_fence(line: str, fence: tuple[str, int] | None) -> tuple[str, int] | None:
+    match = re.match(r"^ {0,3}(`{3,}|~{3,})(.*)$", line)
+    if not match:
+        return fence
+    marker, suffix = match.groups()
+    if fence is None:
+        return (marker[0], len(marker))
+    if marker[0] == fence[0] and len(marker) >= fence[1] and not suffix.strip():
+        return None
+    return fence
+
+
 def _split_blocks(text: str) -> list[str]:
     blocks: list[str] = []
     buf: list[str] = []
-    in_fence = False
+    fence = None
     for line in text.splitlines():
-        if line.startswith("```"):
-            in_fence = not in_fence
-        if not in_fence and not line.strip():
+        fence = _next_fence(line, fence)
+        if fence is None and not line.strip():
             if buf:
                 blocks.append("\n".join(buf).strip())
                 buf = []
@@ -56,11 +67,11 @@ def _split_blocks(text: str) -> list[str]:
 def _mask_fenced_lines(text: str) -> str:
     """Blank out fenced lines so heading scans ignore `#` comments in code."""
     masked: list[str] = []
-    in_fence = False
+    fence = None
     for line in text.splitlines(keepends=True):
-        if line.startswith("```"):
-            in_fence = not in_fence
-        masked.append(re.sub(r"[^\n]", " ", line) if in_fence else line)
+        previous = fence
+        fence = _next_fence(line.rstrip("\r\n"), fence)
+        masked.append(re.sub(r"[^\n]", " ", line) if previous is not None or fence is not None else line)
     return "".join(masked)
 
 
@@ -70,36 +81,51 @@ def chunk_text(
     overlap: float,
     count_tokens: Callable[[str], int],
 ) -> list[str]:
-    blocks = _split_blocks(text)
-    chunks: list[str] = []
-    current: list[str] = []
-    current_tokens = 0
-    overlap_tokens = int(max_tokens * overlap)
-
-    def flush() -> None:
-        nonlocal current, current_tokens
-        if current:
-            chunks.append("\n\n".join(current))
-        tail: list[str] = []
-        tail_tokens = 0
-        for block in reversed(current):
-            if tail_tokens >= overlap_tokens:
-                break
-            tail.insert(0, block)
-            tail_tokens += count_tokens(block)
-        current = tail
-        current_tokens = tail_tokens
-
+    # Keep fenced blocks intact; oversized prose can be split without losing text.
+    blocks = []
+    for block in _split_blocks(text):
+        if count_tokens(block) <= max_tokens or any(_next_fence(line, None) for line in block.splitlines()):
+            blocks.append(block)
+            continue
+        words = list(re.finditer(r"\S+", block))
+        start = 0
+        while start < len(words):
+            low, high = start + 1, len(words)
+            while low < high:
+                mid = (low + high + 1) // 2
+                piece = block[words[start].start():words[mid - 1].end()]
+                if count_tokens(piece) <= max_tokens:
+                    low = mid
+                else:
+                    high = mid - 1
+            blocks.append(block[words[start].start():words[low - 1].end()])
+            start = low
+    chunks = []
+    current = ""
     for block in blocks:
-        tokens = count_tokens(block)
-        if current and current_tokens + tokens > max_tokens:
-            flush()
-        current.append(block)
-        current_tokens += tokens
-
+        candidate = current + "\n\n" + block if current else block
+        if current and count_tokens(candidate) > max_tokens:
+            chunks.append(current)
+            # Never create partial code fences in overlap text.
+            tail = ""
+            if "```" not in current and "~~~" not in current:
+                words = current.split()
+                desired = int(max_tokens * overlap)
+                low, high = 0, len(words)
+                while low < high:
+                    mid = (low + high + 1) // 2
+                    candidate_tail = " ".join(words[-mid:])
+                    if count_tokens(candidate_tail) <= desired and count_tokens(candidate_tail + "\n\n" + block) <= max_tokens:
+                        low = mid
+                    else:
+                        high = mid - 1
+                tail = " ".join(words[-low:]) if low else ""
+            current = tail + "\n\n" + block if tail else block
+        else:
+            current = candidate
     if current:
-        chunks.append("\n\n".join(current))
-    return [c for c in chunks if c.strip()]
+        chunks.append(current)
+    return [chunk for chunk in chunks if chunk.strip()]
 
 
 def parse_markdown(
@@ -120,8 +146,9 @@ def parse_markdown(
     heading_stack: list[tuple[int, str]] = []
     positions = list(HEADING_RE.finditer(_mask_fenced_lines(body)))
     sections: list[tuple[str, str, str]] = []
-    if not positions:
-        sections.append(("", meta.get("title", ""), body))
+    preamble = body[:positions[0].start()] if positions else body
+    if preamble.strip():
+        sections.append(("", meta.get("title", ""), preamble))
     for i, match in enumerate(positions):
         level = len(match.group(1))
         title = match.group(2).strip()
@@ -148,4 +175,4 @@ def parse_markdown(
                     version=version,
                 )
             )
-    return chunks
+    return list({chunk.id: chunk for chunk in chunks}.values())

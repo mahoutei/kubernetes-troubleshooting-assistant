@@ -20,6 +20,7 @@ Do not add explanations or markdown."""
 def build_messages(example: Example) -> list[dict[str, str]]:
     return [
         {"role": "system", "content": SYSTEM_TEMPLATE.format(tools=json.dumps(example.tools))},
+        *example.history,
         {"role": "user", "content": example.user},
     ]
 

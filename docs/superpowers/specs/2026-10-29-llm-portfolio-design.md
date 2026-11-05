@@ -1,5 +1,8 @@
 # LLM Engineer Portfolio — Design Spec
 
+> **Historical record:** this document preserves earlier plans, decisions, or observations. See [current status and next milestones](../../STATUS.md) for the maintained project status.
+
+
 **Date:** 2026-10-29
 **Status:** Draft for review
 **Target roles:** Applied AI / LLM Engineer

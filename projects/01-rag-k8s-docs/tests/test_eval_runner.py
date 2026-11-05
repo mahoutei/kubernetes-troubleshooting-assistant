@@ -119,3 +119,31 @@ def test_test_split_requires_certification(tmp_path, capsys):
     out = capsys.readouterr().out
     assert "refusing the test split" in out
     assert "Reviewer is blank" in out
+
+
+def test_generation_and_judge_use_api_sized_context_without_losing_recall():
+    chunks = [Chunk(str(i), f"unique-text-{i}", f"https://x/{i}", "H", f"{i}.md", "v") for i in range(8)]
+
+    class Retriever:
+        def retrieve(self, question, top_k):
+            return [RetrievedChunk(c, 1.0) for c in chunks[:top_k]]
+
+    class Judge:
+        def score(self, question, candidate, reference, context):
+            assert "[5] https://x/4" in context
+            assert "unique-text-5" not in context
+            return {"correct": 1, "faithful": 1, "citation_support": 1}
+
+    def answer(question, context):
+        assert [c.id for c in context] == ["0", "1", "2", "3", "4"]
+        return Answer("fact [1]", [Citation(1, context[0].url, "H", "0")], Usage(), 0)
+
+    payload = run_eval([_question(sources=("https://x/7",))], Retriever(), answer, Judge(), top_k=8)
+    assert payload["metrics"]["recall@10"] == 1.0
+    assert payload["context_k"] == 5
+
+
+@pytest.mark.parametrize("context_k", [0, 21])
+def test_eval_rejects_invalid_context_size(context_k):
+    with pytest.raises(ValueError, match="context_k"):
+        run_eval([_question()], FakeRetriever(), context_k=context_k)
